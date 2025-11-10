@@ -1,7 +1,7 @@
 /**
  * @fileoverview Renewable energy comparison card component.
  *
- * @module components/dashboard/compare/RenewableEnergyCard
+ * @module components/shared/renewable_energy/RenewableEnergyCard
  */
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'

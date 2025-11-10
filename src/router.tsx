@@ -1,5 +1,6 @@
 import { QueryClient } from '@tanstack/react-query'
 import { createRouter } from '@tanstack/react-router'
+import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
 
 // Import the generated route tree
 import { routeTree } from './routeTree.gen'
@@ -22,9 +23,16 @@ export const getRouter = () => {
     routeTree,
     scrollRestoration: true,
     defaultPreloadStaleTime: 0,
+    defaultPendingMs: 0, // Show pending component immediately when navigation starts
     context: {
       queryClient,
     },
+  })
+
+  // Set up automatic dehydration/hydration of QueryClient state for SSR
+  setupRouterSsrQueryIntegration({
+    router,
+    queryClient,
   })
 
   return router

@@ -7,7 +7,7 @@
  * - Renewable energy comparison
  * - Generation mix comparison
  *
- * @module components/dashboard/compare/CompareView
+ * @module components/compare/CompareView
  */
 
 import { useState } from 'react'
@@ -16,12 +16,12 @@ import { ClientOnly } from '@/components/ClientOnly'
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 import type { CountryEmissionsSnapshot } from '@/types/emissions'
-import { GenerationMixComparison } from './GenerationMixComparison'
-import { CarbonIntensityCard } from './CarbonIntensityCard'
-import { RenewableEnergyCard } from './RenewableEnergyCard'
-import { TotalDemandCard } from './TotalDemandCard'
-import { ViewModeTabs } from './ViewModeTabs'
-import { categorizeFuelTypes } from './utils'
+import { RenewableEnergyCard } from '../shared'
+import { GenerationMixComparison } from './generation_mix/GenerationMixComparison'
+import { CarbonIntensityCard } from './carbon_intensity/CarbonIntensityCard'
+import { TotalDemandCard } from './total_demand/TotalDemandCard'
+import { ViewModeTabs } from './view_mode/ViewModeTabs'
+import { categorizeFuelTypes } from '@/lib/fuel-utils'
 
 interface CompareViewProps {
   auData: CountryEmissionsSnapshot

@@ -1,11 +1,11 @@
 /**
  * @fileoverview Carbon intensity comparison card component.
  *
- * @module components/dashboard/compare/CarbonIntensityCard
+ * @module components/compare/carbon_intensity/CarbonIntensityCard
  */
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { getIntensityBadge } from './utils'
+import { IntensityBadge } from '@/components/shared'
 
 interface CarbonIntensityCardProps {
   intensity: number
@@ -22,7 +22,7 @@ export function CarbonIntensityCard({ intensity }: CarbonIntensityCardProps) {
           <CardTitle className="text-base font-medium text-muted-foreground">
             Carbon Intensity
           </CardTitle>
-          {getIntensityBadge(intensity)}
+          <IntensityBadge intensity={intensity} />
         </div>
       </CardHeader>
       <CardContent className="pb-2">

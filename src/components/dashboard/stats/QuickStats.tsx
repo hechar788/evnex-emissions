@@ -13,8 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ClientOnly } from '@/components/ClientOnly'
 import type { CountryEmissionsSnapshot } from '@/types/emissions'
 import { Cell, Pie, PieChart, Tooltip } from 'recharts'
-import { categorizeFuelTypes, getIntensityBadge } from '../compare/utils'
-import { RenewableTooltip } from '../compare/RenewableTooltip'
+import { categorizeFuelTypes } from '@/lib/fuel-utils'
+import { IntensityBadge, RenewableTooltip } from '@/components/shared'
 
 interface QuickStatsProps {
   data: CountryEmissionsSnapshot
@@ -57,7 +57,7 @@ export function QuickStats({ data }: QuickStatsProps) {
             <CardTitle className="text-base font-medium text-muted-foreground">
               Carbon Intensity
             </CardTitle>
-            {getIntensityBadge(data.carbonIntensity.current)}
+            <IntensityBadge intensity={data.carbonIntensity.current} />
           </div>
         </CardHeader>
         <CardContent className="pb-2">

@@ -1,7 +1,7 @@
 /**
  * @fileoverview Custom tooltip for renewable energy pie chart.
  *
- * @module components/dashboard/compare/RenewableTooltip
+ * @module components/shared/renewable_energy/RenewableTooltip
  */
 
 /**

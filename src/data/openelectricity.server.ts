@@ -13,6 +13,7 @@
 
 import type { CountryEmissionsSnapshot } from '@/types/emissions'
 import type { OpenElectricityNetworkFueltechRow } from '@/types/open_electricity/datatable'
+import { parseTimezoneOffset } from '@/lib/time-utils'
 
 import { buildSnapshotFromRows } from './openelectricity/aggregation'
 import { getOpenElectricityClient } from './openelectricity/client'
@@ -22,10 +23,16 @@ import { getOpenElectricityClient } from './openelectricity/client'
  *
  * Workflow:
  * 1. Gets singleton SDK client (requires OPEN_ELECTRICITY_API_KEY env var)
- * 2. Calculates the last complete 5-minute interval for NEM timezone
- * 3. Requests 5-minute NEM network data grouped by region and fueltech
- * 4. Extracts latest timestamp interval
- * 5. Transforms rows into normalized snapshot via aggregation pipeline
+ * 2. Requests 5-minute NEM network data grouped by region and fueltech
+ * 3. Extracts network timezone offset for proper timestamp interpretation
+ * 4. Corrects timestamps (SDK parses timezone-naive timestamps as UTC)
+ * 5. Extracts latest timestamp interval
+ * 6. Transforms rows into normalized snapshot via aggregation pipeline
+ *
+ * Timezone Handling:
+ * The OpenElectricity API returns timezone-naive timestamps (e.g., "2024-01-15T10:30:00")
+ * that represent local AEST/AEDT time. The SDK's Date parser interprets these as UTC,
+ * causing a 10-11 hour offset. We correct this by subtracting the network timezone offset.
  *
  * Data includes:
  * - Country-level metrics (total demand, carbon intensity, generation mix)
@@ -57,7 +64,7 @@ export const loadAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
   const dateStart = startDate.toISOString()
 
   // Fetch power, energy, and emissions from network data (grouped by region and fueltech)
-  const { datatable } = await client.getNetworkData('NEM', ['power', 'energy', 'emissions'], {
+  const { response, datatable } = await client.getNetworkData('NEM', ['power', 'energy', 'emissions'], {
     interval: '5m',
     dateStart,
     dateEnd,
@@ -71,6 +78,12 @@ export const loadAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
       'Check API key validity and network connectivity.'
     )
   }
+
+  // Extract network timezone offset for proper timestamp interpretation
+  // The SDK parses timezone-naive timestamps (e.g., "2024-01-15T10:30:00") as if they're in UTC,
+  // but they're actually in network local time (AEST/AEDT). We need to correct this.
+  const timezoneOffset = response?.data?.[0]?.network_timezone_offset || '+10:00'
+  const offsetMs = parseTimezoneOffset(timezoneOffset)
 
   // Fetch demand data separately using getMarket (demand is per-region, not per-fueltech)
   let demandData: any = null
@@ -88,7 +101,7 @@ export const loadAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
 
   // Extract timestamp and rows
   const rows = datatable.getRows() as OpenElectricityNetworkFueltechRow[]
-  
+
   // Find the actual latest timestamp from the rows themselves
   // This is more reliable than getLatestTimestamp() which might return cached values
   // For OpenElectricityNetworkFueltechRow, interval is always a string
@@ -102,7 +115,7 @@ export const loadAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
       }
     }
   }
-  
+
   // Fallback to getLatestTimestamp() if no rows found
   if (latestTimestampMs === 0) {
     const apiLatestTimestampValue = datatable.getLatestTimestamp()
@@ -111,7 +124,13 @@ export const loadAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
         ? apiLatestTimestampValue
         : new Date(apiLatestTimestampValue).getTime()
   }
-  
+
+  // Correct the timestamp for timezone handling
+  // The SDK parses timezone-naive timestamps as UTC, but they're actually in network local time
+  // We need to subtract the offset to get the correct UTC timestamp
+  // Example: "10:30:00" AEST (+10) was parsed as "10:30:00 UTC", but should be "00:30:00 UTC"
+  latestTimestampMs = latestTimestampMs - offsetMs
+
   // OpenElectricity data typically has a 5-15 minute delay, so data up to 20 minutes old is normal
 
   // Merge demand data into rows if available
@@ -120,17 +139,19 @@ export const loadAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
     const demandByRegionTime = new Map<string, number>()
 
     // Build lookup map of demand by region and timestamp
+    // Apply the same timezone correction to demand timestamps
     for (const demandRow of demandRows) {
       const region = demandRow.region || demandRow.network_region
-      const time = new Date(demandRow.interval).getTime()
+      const time = new Date(demandRow.interval).getTime() - offsetMs
       const key = `${region}_${time}`
       demandByRegionTime.set(key, demandRow.demand as number)
     }
 
     // Merge demand into main rows
+    // Apply the same timezone correction to row timestamps for matching
     for (const row of rows) {
       const region = row.region || row.network_region
-      const time = new Date(row.interval).getTime()
+      const time = new Date(row.interval).getTime() - offsetMs
       const key = `${region}_${time}`
       const demand = demandByRegionTime.get(key)
       if (demand !== undefined) {

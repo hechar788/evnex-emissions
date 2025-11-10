@@ -28,13 +28,16 @@ const fetchAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
 /**
  * Hook for accessing AU emissions data.
  *
- * Uses suspense query seeded by route loader. Provides:
+ * Uses suspense query with data hydrated from SSR loader. Provides:
  * - Typed snapshot data
  * - Loading/refetching states
  * - Manual refetch trigger
  * - Metadata (fetchedAt, source, stale)
  *
- * @param initialData - Optional initial data from SSR loader to prevent hydration mismatches
+ * The data is automatically hydrated from the server via TanStack Router's
+ * SSR Query integration, which dehydrates the QueryClient state during SSR
+ * and rehydrates it on the client.
+ *
  * @returns AU emissions data with controls
  *
  * @example
@@ -58,13 +61,10 @@ const fetchAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
  * }
  * ```
  */
-export function useAuData(initialData?: CountryEmissionsSnapshot) {
+export function useAuData() {
   const query = useSuspenseQuery({
     queryKey: auQueryKeys.current(),
     queryFn: fetchAuSnapshot,
-    initialData,
-    // Mark initial data as fresh to prevent refetch during hydration
-    initialDataUpdatedAt: initialData ? new Date(initialData.metadata.fetchedAt).getTime() : undefined,
     ...emissionsQueryDefaults,
   })
 
