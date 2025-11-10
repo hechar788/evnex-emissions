@@ -10,11 +10,13 @@
 
 import { RefreshCw } from 'lucide-react'
 import { createFileRoute } from '@tanstack/react-router'
+import { useState } from 'react'
 
-import { AusRegionalData, GenerationMix, QuickStats } from '@/components/dashboard'
+import { CompareView, GenerationMix, QuickStats, RegionalBreakdown } from '@/components/dashboard'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { useDashboardData } from '@/hooks'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { auQueryKeys, useAuData, useNzData } from '@/hooks'
 import type { CountryEmissionsSnapshot } from '@/types/emissions'
 
 /**
@@ -41,7 +43,7 @@ export const Route = createFileRoute('/dashboard')({
     const auSnapshot: CountryEmissionsSnapshot = await response.json()
 
     // Seed React Query cache for client hydration
-    queryClient.setQueryData(['dashboard', 'au', 'current'], auSnapshot)
+    queryClient.setQueryData(auQueryKeys.current(), auSnapshot)
 
     return { auSnapshot }
   },
@@ -77,14 +79,22 @@ export const Route = createFileRoute('/dashboard')({
  * Dashboard view component.
  *
  * Renders emissions dashboard with:
+ * - Country tabs (Australia / New Zealand)
  * - Carbon intensity metrics
  * - Generation mix visualization
  * - Demand statistics
- * - Regional breakdowns (AU only)
+ * - Regional/National breakdowns
  * - Manual refresh controls
  */
 function DashboardView() {
-  const { data, refetch, isFetching, metadata } = useDashboardData()
+  const { data: auData, refetch: auRefetch, isFetching: auFetching, metadata: auMetadata } = useAuData()
+  const { data: nzData, refetch: nzRefetch, isFetching: nzFetching } = useNzData()
+  const [activeCountry, setActiveCountry] = useState<'australia' | 'new-zealand' | 'compare'>('australia')
+
+  const isAustralia = activeCountry === 'australia'
+  const currentData = isAustralia ? auData : nzData
+  const currentRefetch = isAustralia ? auRefetch : nzRefetch
+  const currentFetching = isAustralia ? auFetching : nzFetching
 
   return (
     <div className="min-h-screen bg-background">
@@ -94,26 +104,26 @@ function DashboardView() {
           <div>
             <h1 className="text-4xl font-bold">Emissions Dashboard</h1>
             <p className="mt-2 text-muted-foreground">
-              Real-time Australian electricity carbon intensity and generation mix
+              Real-time electricity carbon intensity and generation mix
             </p>
           </div>
           <Button
-            onClick={() => refetch()}
-            disabled={isFetching}
+            onClick={() => currentRefetch()}
+            disabled={currentFetching}
             variant="outline"
             className="cursor-pointer gap-2"
           >
-            <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${currentFetching ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
 
-        {/* Stale data warning */}
-        {metadata.stale && (
+        {/* Stale data warning (AU only) */}
+        {isAustralia && auMetadata.stale && (
           <Alert className="mb-6 border-yellow-600 bg-yellow-950/20">
             <AlertDescription className="text-yellow-400">
               Data may be stale. Last fetched:{' '}
-              {new Date(metadata.fetchedAt).toLocaleString('en-US', {
+              {new Date(auMetadata.fetchedAt).toLocaleString('en-US', {
                 year: 'numeric',
                 month: 'short',
                 day: 'numeric',
@@ -126,16 +136,66 @@ function DashboardView() {
           </Alert>
         )}
 
-        <div className="space-y-6">
-          {/* Quick statistics */}
-          <QuickStats data={data} />
+        {/* Country Tabs */}
+        <Tabs value={activeCountry} onValueChange={(v) => setActiveCountry(v as any)} className="w-full">
+          <TabsList className="grid w-full max-w-2xl grid-cols-3">
+            <TabsTrigger
+              value="australia"
+              className="cursor-pointer hover:bg-primary/[0.025] transition-all"
+            >
+              Australia
+            </TabsTrigger>
+            <TabsTrigger
+              value="new-zealand"
+              className="cursor-pointer hover:bg-primary/[0.025] transition-all"
+            >
+              New Zealand
+            </TabsTrigger>
+            <TabsTrigger
+              value="compare"
+              className="cursor-pointer hover:bg-primary/[0.025] transition-all"
+            >
+              Compare
+            </TabsTrigger>
+          </TabsList>
 
-          {/* Generation mix */}
-          <GenerationMix generationMix={data.generationMix} />
+          <TabsContent value="australia" className="mt-6 space-y-6">
+            {/* Quick statistics */}
+            <QuickStats data={auData} />
 
-          {/* Regional breakdown */}
-          {data.regions && <AusRegionalData regions={data.regions} />}
-        </div>
+            {/* Generation mix */}
+            <GenerationMix generationMix={auData.generationMix} country="AU" />
+
+            {/* Regional breakdown */}
+            <RegionalBreakdown country="AU" auRegions={auData.regions} />
+          </TabsContent>
+
+          <TabsContent value="new-zealand" className="mt-6 space-y-6">
+            {nzData ? (
+              <>
+                {/* Quick statistics */}
+                <QuickStats data={nzData} />
+
+                {/* Generation mix */}
+                <GenerationMix generationMix={nzData.generationMix} country="NZ" />
+              </>
+            ) : (
+              <Alert>
+                <AlertDescription>Loading New Zealand data...</AlertDescription>
+              </Alert>
+            )}
+          </TabsContent>
+
+          <TabsContent value="compare" className="mt-6 space-y-6">
+            {nzData ? (
+              <CompareView auData={auData} nzData={nzData} />
+            ) : (
+              <Alert>
+                <AlertDescription>Loading New Zealand data...</AlertDescription>
+              </Alert>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   )

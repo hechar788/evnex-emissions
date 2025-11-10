@@ -6,4 +6,5 @@
  * @module hooks
  */
 
-export { useDashboardData, useCountryMetrics, dashboardQueryKeys } from './useDashboardData'
+export { useAuData, useAuMetrics, auQueryKeys } from './useAuData'
+export { useNzData, nzQueryKeys } from './useNzData'

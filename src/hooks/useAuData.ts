@@ -1,38 +1,31 @@
 /**
- * @fileoverview Dashboard data access hook.
+ * @fileoverview Australian emissions data access hook.
  *
  * Wraps React Query access to AU emissions data with typed interface.
  * Provides loading states, refetch controls, and metadata exposure.
  *
- * @module hooks/useDashboardData
+ * @module hooks/useAuData
  */
 
 import { useSuspenseQuery } from '@tanstack/react-query'
 
+import { createQueryKeyFactory, emissionsQueryDefaults, fetchJson } from '@/lib/query-utils'
 import type { CountryEmissionsSnapshot } from '@/types/emissions'
 
 /**
- * Query key factory for dashboard data.
+ * Query key factory for Australian data.
  */
-export const dashboardQueryKeys = {
-  all: ['dashboard'] as const,
-  au: () => [...dashboardQueryKeys.all, 'au'] as const,
-  auCurrent: () => [...dashboardQueryKeys.au(), 'current'] as const,
-}
+export const auQueryKeys = createQueryKeyFactory('au')
 
 /**
  * Fetches AU emissions snapshot from REST API.
  */
 const fetchAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
-  const response = await fetch('/api/emissions/au')
-  if (!response.ok) {
-    throw new Error(`Failed to fetch AU emissions: ${response.statusText}`)
-  }
-  return response.json()
+  return fetchJson<CountryEmissionsSnapshot>('/api/emissions/au', 'Failed to fetch AU emissions')
 }
 
 /**
- * Hook for accessing AU emissions dashboard data.
+ * Hook for accessing AU emissions data.
  *
  * Uses suspense query seeded by route loader. Provides:
  * - Typed snapshot data
@@ -40,12 +33,12 @@ const fetchAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
  * - Manual refetch trigger
  * - Metadata (fetchedAt, source, stale)
  *
- * @returns Dashboard data with controls
+ * @returns AU emissions data with controls
  *
  * @example
  * ```tsx
  * function DashboardCard() {
- *   const { data, refetch, isFetching } = useDashboardData()
+ *   const { data, refetch, isFetching } = useAuData()
  *
  *   return (
  *     <Card>
@@ -63,12 +56,11 @@ const fetchAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
  * }
  * ```
  */
-export function useDashboardData() {
+export function useAuData() {
   const query = useSuspenseQuery({
-    queryKey: dashboardQueryKeys.auCurrent(),
+    queryKey: auQueryKeys.current(),
     queryFn: fetchAuSnapshot,
-    staleTime: 5 * 60 * 1000, // 5 minutes - matches OpenElectricity cadence
-    refetchOnWindowFocus: false,
+    ...emissionsQueryDefaults,
   })
 
   return {
@@ -88,20 +80,20 @@ export function useDashboardData() {
 /**
  * Derived data hook for country-level metrics.
  *
- * Provides computed breakdowns and comparisons built on top of useDashboardData.
+ * Provides computed breakdowns and comparisons built on top of useAuData.
  * Memoizes expensive calculations to prevent unnecessary rerenders.
  *
  * @example
  * ```tsx
  * function MetricsCard() {
- *   const { renewableTotal, fossilTotal, renewablePercentage } = useCountryMetrics()
+ *   const { renewableTotal, fossilTotal, renewablePercentage } = useAuMetrics()
  *
  *   return <Chart data={[renewableTotal, fossilTotal]} />
  * }
  * ```
  */
-export function useCountryMetrics() {
-  const { data } = useDashboardData()
+export function useAuMetrics() {
+  const { data } = useAuData()
 
   // Categorize fuels into renewable vs fossil
   const renewableFuels = ['hydro', 'wind', 'solar', 'geothermal', 'biomass']

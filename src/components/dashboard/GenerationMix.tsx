@@ -12,6 +12,7 @@ import type { GenerationMix as GenerationMixType } from '@/types/emissions'
 
 interface GenerationMixProps {
   generationMix: GenerationMixType
+  country: 'AU' | 'NZ'
 }
 
 /**
@@ -40,14 +41,16 @@ const getFuelColor = (fuel: string) => {
  * - Percentage of total generation
  * - Horizontal bar chart
  */
-export function GenerationMix({ generationMix }: GenerationMixProps) {
+export function GenerationMix({ generationMix, country }: GenerationMixProps) {
+  const description = country === 'AU'
+    ? 'Current power generation by fuel type across the NEM network'
+    : 'Current power generation by fuel type across New Zealand'
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Generation Mix</CardTitle>
-        <CardDescription>
-          Current power generation by fuel type across the NEM network
-        </CardDescription>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
