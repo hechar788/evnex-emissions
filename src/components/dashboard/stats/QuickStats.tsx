@@ -9,79 +9,15 @@
  * @module components/dashboard/QuickStats
  */
 
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ClientOnly } from '@/components/ClientOnly'
 import type { CountryEmissionsSnapshot } from '@/types/emissions'
 import { Cell, Pie, PieChart, Tooltip } from 'recharts'
+import { categorizeFuelTypes, getIntensityBadge } from '../compare/utils'
+import { RenewableTooltip } from '../compare/RenewableTooltip'
 
 interface QuickStatsProps {
   data: CountryEmissionsSnapshot
-}
-
-/**
- * Categorize fuel types into renewable and non-renewable.
- */
-const categorizeFuelTypes = (generationMix: CountryEmissionsSnapshot['generationMix']) => {
-  const renewableFuels = ['hydro', 'wind', 'solar', 'geothermal', 'biomass']
-
-  const renewable: Array<{ fuel: string; percentage: number }> = []
-  const nonRenewable: Array<{ fuel: string; percentage: number }> = []
-
-  let renewableTotal = 0
-  let nonRenewableTotal = 0
-
-  generationMix.forEach((entry) => {
-    if (renewableFuels.includes(entry.fuel)) {
-      renewable.push({ fuel: entry.fuel, percentage: entry.percentage })
-      renewableTotal += entry.percentage
-    } else {
-      nonRenewable.push({ fuel: entry.fuel, percentage: entry.percentage })
-      nonRenewableTotal += entry.percentage
-    }
-  })
-
-  return {
-    renewable,
-    nonRenewable,
-    renewableTotal,
-    nonRenewableTotal,
-  }
-}
-
-/**
- * Custom tooltip for renewable energy pie chart.
- */
-const RenewableTooltip = ({ active, payload }: any) => {
-  if (active && payload && payload.length) {
-    const data = payload[0].payload
-    return (
-      <div className="rounded-lg border border-border bg-background p-3 shadow-lg min-w-44">
-        <p className="mb-2 font-semibold">{data.name}</p>
-        <p className="mb-2 text-sm font-mono">
-          {data.value.toFixed(1)}% of total
-        </p>
-        <div className="border-t border-muted pt-2 space-y-1">
-          <p className="text-xs font-semibold text-muted-foreground mb-1">Fuel Types:</p>
-          {data.fuels.map((fuel: { fuel: string; percentage: number }) => (
-            <p key={fuel.fuel} className="text-xs capitalize">
-              {fuel.fuel}: {fuel.percentage.toFixed(1)}%
-            </p>
-          ))}
-        </div>
-      </div>
-    )
-  }
-  return null
-}
-
-/**
- * Determine carbon intensity severity badge.
- */
-const getIntensityBadge = (intensity: number) => {
-  if (intensity < 200) return <Badge variant="default" className="bg-green-600 px-2.5 py-1 text-sm">Low</Badge>
-  if (intensity < 400) return <Badge variant="default" className="bg-yellow-600 px-2.5 py-1 text-sm">Medium</Badge>
-  return <Badge variant="destructive" className="px-2.5 py-1 text-sm">High</Badge>
 }
 
 /**

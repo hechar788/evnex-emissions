@@ -9,3 +9,5 @@
 export { useAuData, useAuMetrics, auQueryKeys } from './useAuData'
 export { useNzData, nzQueryKeys } from './useNzData'
 export { useAutoRefresh } from './useAutoRefresh'
+export { useDataTimestamps } from './useDataTimestamps'
+export { useSyncedAutoRefresh } from './useSyncedAutoRefresh'

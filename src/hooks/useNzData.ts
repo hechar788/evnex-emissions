@@ -15,6 +15,7 @@ import {
   fetchJsonWithTimeout,
 } from '@/lib/query-utils'
 import type { CountryEmissionsSnapshot, FuelType } from '@/types/emissions'
+import { NZ_FUEL_CODE_TO_FUEL_TYPE } from '@/types/transpower/generation/fuel_codes'
 
 /**
  * Query key factory for NZ data.
@@ -113,19 +114,6 @@ const transformNzData = async (): Promise<CountryEmissionsSnapshot> => {
       const latest = items[0]
 
       if ('generation_type' in latest && Array.isArray(latest.generation_type)) {
-        // Map NZ fuel codes to normalized fuel types
-        const fuelTypeMap: Record<string, FuelType> = {
-          bat: 'battery',
-          cg: 'coal', // Coal/gas (legacy)
-          cog: 'cogeneration',
-          gas: 'gas',
-          geo: 'geothermal',
-          hyd: 'hydro',
-          liq: 'diesel',
-          sol: 'solar',
-          win: 'wind',
-        }
-
         // First pass: calculate total MWh
         let totalMWh = 0
         const fuelData: Array<{ fuel: FuelType; mwh: number }> = []
@@ -136,7 +124,8 @@ const transformNzData = async (): Promise<CountryEmissionsSnapshot> => {
           if (mwhKey && typeof typeData[mwhKey] === 'number') {
             const mwh = typeData[mwhKey]
             const fuelCode = mwhKey.replace('_mwh', '')
-            const fuel: FuelType = fuelTypeMap[fuelCode] || 'other'
+            // Use shared NZ fuel code mapping
+            const fuel: FuelType = NZ_FUEL_CODE_TO_FUEL_TYPE[fuelCode as keyof typeof NZ_FUEL_CODE_TO_FUEL_TYPE] || 'other'
 
             totalMWh += mwh
             fuelData.push({ fuel, mwh })

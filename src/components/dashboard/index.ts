@@ -6,10 +6,12 @@
  * @module components/dashboard
  */
 
-export { QuickStats } from './QuickStats'
-export { GenerationMix } from './GenerationMix'
+export { QuickStats } from './stats/QuickStats'
+export { GenerationMix } from './generation_mix/GenerationMix'
 export { GenerationMixComparison } from './compare/GenerationMixComparison'
-export { AusRegionalData } from './AusRegionalData'
-export { NzRegionalData } from './NzRegionalData'
-export { RegionalBreakdown } from './RegionalBreakdown'
+export { AusRegionalData } from './regional_data/AusRegionalData'
+export { NzRegionalData } from './regional_data/NzRegionalData'
+export { RegionalBreakdown } from './regional_breakdown/RegionalBreakdown'
 export { CompareView } from './compare'
+export { DashboardHeader } from './header/DashboardHeader'
+export { RefreshControls } from './header/RefreshControls'

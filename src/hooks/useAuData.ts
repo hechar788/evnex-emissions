@@ -10,7 +10,8 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 
 import { createQueryKeyFactory, emissionsQueryDefaults, fetchJson } from '@/lib/query-utils'
-import type { CountryEmissionsSnapshot } from '@/types/emissions'
+import { isRenewableFuelType } from '@/lib/fuel-utils'
+import type { CountryEmissionsSnapshot, FuelType } from '@/types/emissions'
 
 /**
  * Query key factory for Australian data.
@@ -103,12 +104,11 @@ export function useAuData(initialData?: CountryEmissionsSnapshot) {
 export function useAuMetrics() {
   const { data } = useAuData()
 
-  // Categorize fuels into renewable vs fossil
-  const renewableFuels = ['hydro', 'wind', 'solar', 'geothermal', 'biomass']
-  const fossilFuels = ['coal', 'gas', 'diesel']
+  // Categorize fuels into renewable vs fossil using shared utilities
+  const fossilFuels: FuelType[] = ['coal', 'gas', 'diesel']
 
   const renewableTotal = data.generationMix
-    .filter((entry) => renewableFuels.includes(entry.fuel))
+    .filter((entry) => isRenewableFuelType(entry.fuel))
     .reduce((sum, entry) => sum + entry.megawatts, 0)
 
   const fossilTotal = data.generationMix

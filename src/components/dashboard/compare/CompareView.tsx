@@ -16,12 +16,12 @@ import { ClientOnly } from '@/components/ClientOnly'
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 import type { CountryEmissionsSnapshot } from '@/types/emissions'
-import { GenerationMixComparison } from './compare/GenerationMixComparison'
-import { CarbonIntensityCard } from './compare/CarbonIntensityCard'
-import { RenewableEnergyCard } from './compare/RenewableEnergyCard'
-import { TotalDemandCard } from './compare/TotalDemandCard'
-import { ViewModeTabs } from './compare/ViewModeTabs'
-import { categorizeFuelTypes } from './compare/utils'
+import { GenerationMixComparison } from './GenerationMixComparison'
+import { CarbonIntensityCard } from './CarbonIntensityCard'
+import { RenewableEnergyCard } from './RenewableEnergyCard'
+import { TotalDemandCard } from './TotalDemandCard'
+import { ViewModeTabs } from './ViewModeTabs'
+import { categorizeFuelTypes } from './utils'
 
 interface CompareViewProps {
   auData: CountryEmissionsSnapshot

@@ -4,7 +4,7 @@
  * @module components/dashboard/compare
  */
 
-export { CompareView } from '../CompareView'
+export { CompareView } from './CompareView'
 export { CarbonIntensityCard } from './CarbonIntensityCard'
 export { TotalDemandCard } from './TotalDemandCard'
 export { RenewableEnergyCard } from './RenewableEnergyCard'
