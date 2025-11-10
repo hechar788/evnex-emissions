@@ -20,14 +20,12 @@ import { useAuData, useDataTimestamps, useNzData, useSyncedAutoRefresh } from '@
 import { CompareView } from '@/components/compare'
 
 import { DashboardHeader } from './header/DashboardHeader'
-import { GenerationMix } from './GenerationMix'
-import { QuickStats } from './QuickStats'
-import { RegionalBreakdown } from './regional_data/RegionalBreakdown'
+import { GenerationMix } from './generation_mix/GenerationMix'
+import { QuickStats } from './stats/QuickStats'
+import { RegionalBreakdown } from './regional_breakdown/RegionalBreakdown'
 import {
-  CountryDashboardLoadingSkeleton,
-  CompareViewLoadingSkeleton,
-  QuickStatsLoadingSkeleton,
-  GenerationMixLoadingSkeleton,
+  CountryDashboardLoadingSkeleton, CompareViewLoadingSkeleton, 
+  QuickStatsLoadingSkeleton, GenerationMixLoadingSkeleton,
 } from './skeleton/LoadingSkeleton'
 
 /**
