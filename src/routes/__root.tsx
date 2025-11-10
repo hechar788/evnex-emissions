@@ -1,12 +1,18 @@
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
+import type { QueryClient } from '@tanstack/react-query'
 
 import Header from '@/components/Header'
 
 import appCss from '../styles.css?url'
 
-export const Route = createRootRoute({
+interface RouterContext {
+  queryClient: QueryClient
+}
+
+export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => ({
     meta: [
       {
@@ -17,7 +23,7 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'TanStack Start Starter',
+        title: 'EVNEX Emissions Dashboard',
       },
     ],
     links: [
@@ -28,29 +34,33 @@ export const Route = createRootRoute({
     ],
   }),
 
-  shellComponent: RootDocument,
+  component: RootDocument,
 })
 
-function RootDocument({ children }: { children: React.ReactNode }) {
+function RootDocument() {
+  const { queryClient } = Route.useRouteContext()
+
   return (
     <html lang="en">
       <head>
         <HeadContent />
       </head>
       <body>
-        <Header />
-        {children}
-        <TanStackDevtools
-          config={{
-            position: 'bottom-right',
-          }}
-          plugins={[
-            {
-              name: 'Tanstack Router',
-              render: <TanStackRouterDevtoolsPanel />,
-            },
-          ]}
-        />
+        <QueryClientProvider client={queryClient}>
+          <Header />
+          <Outlet />
+          <TanStackDevtools
+            config={{
+              position: 'bottom-right',
+            }}
+            plugins={[
+              {
+                name: 'Tanstack Router',
+                render: <TanStackRouterDevtoolsPanel />,
+              },
+            ]}
+          />
+        </QueryClientProvider>
         <Scripts />
       </body>
     </html>
