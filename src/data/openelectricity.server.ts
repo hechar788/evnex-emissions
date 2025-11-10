@@ -12,26 +12,20 @@
  */
 
 import type { CountryEmissionsSnapshot } from '@/types/emissions'
-import type { OpenElectricityMetric } from '@/types/open_electricity'
 import type { OpenElectricityNetworkFueltechRow } from '@/types/open_electricity/datatable'
 
 import { buildSnapshotFromRows } from './openelectricity/aggregation'
 import { getOpenElectricityClient } from './openelectricity/client'
 
 /**
- * Metrics requested from OpenElectricity SDK.
- * These provide the data needed for carbon intensity and generation mix calculations.
- */
-const SDK_METRICS: readonly OpenElectricityMetric[] = ['power', 'energy', 'emissions', 'demand']
-
-/**
- * Fetches the latest Australian emissions snapshot from OpenElectricity.
+ * Loads the latest Australian emissions snapshot from OpenElectricity.
  *
  * Workflow:
  * 1. Gets singleton SDK client (requires OPEN_ELECTRICITY_API_KEY env var)
- * 2. Requests 5-minute NEM network data grouped by region and fueltech
- * 3. Extracts latest timestamp interval
- * 4. Transforms rows into normalized snapshot via aggregation pipeline
+ * 2. Calculates the last complete 5-minute interval for NEM timezone
+ * 3. Requests 5-minute NEM network data grouped by region and fueltech
+ * 4. Extracts latest timestamp interval
+ * 5. Transforms rows into normalized snapshot via aggregation pipeline
  *
  * Data includes:
  * - Country-level metrics (total demand, carbon intensity, generation mix)
@@ -43,8 +37,6 @@ const SDK_METRICS: readonly OpenElectricityMetric[] = ['power', 'energy', 'emiss
  * @throws {Error} When SDK response doesn't include a datatable
  * @returns Normalized AU emissions snapshot with regional data
  *
- * @internal
- *
  * @example
  * ```ts
  * // Typically called from REST API route:
@@ -52,15 +44,39 @@ const SDK_METRICS: readonly OpenElectricityMetric[] = ['power', 'energy', 'emiss
  * return Response.json(snapshot)
  * ```
  */
-const fetchLatestSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
+export const loadAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
   const client = getOpenElectricityClient()
 
-  // Fetch latest 5-minute interval grouped by region and fuel
-  const { datatable } = await client.getNetworkData('NEM', SDK_METRICS, {
+  // Request last 3 days of data to ensure we capture the latest available data
+  const endDate = new Date()
+  const startDate = new Date(endDate)
+  startDate.setDate(startDate.getDate() - 3)
+
+  const dateEnd = endDate.toISOString()
+  const dateStart = startDate.toISOString()
+
+  // Fetch power, energy, and emissions from network data
+  const { datatable } = await client.getNetworkData('NEM', ['power', 'energy', 'emissions'], {
     interval: '5m',
+    dateStart,
+    dateEnd,
     primaryGrouping: 'network_region',
-    secondaryGrouping: 'fueltech',
+    secondaryGrouping: ['fueltech'],
   })
+
+  // Try to fetch demand separately from market data (different endpoint)
+  let demandData: any = null
+  try {
+    const { datatable: demandTable } = await client.getMarket('NEM', ['demand'], {
+      interval: '5m',
+      dateStart,
+      dateEnd,
+      primaryGrouping: 'network_region',
+    })
+    demandData = demandTable
+  } catch (error) {
+    // Demand data not available - will use generation as proxy
+  }
 
   if (!datatable) {
     throw new Error(
@@ -78,27 +94,31 @@ const fetchLatestSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
 
   const rows = datatable.getRows() as OpenElectricityNetworkFueltechRow[]
 
-  // Transform into normalized snapshot
+  // Merge demand data into rows if available
+  if (demandData) {
+    const demandRows = demandData.getRows()
+    const demandByRegionTime = new Map<string, number>()
+
+    // Build lookup map of demand by region and timestamp
+    for (const demandRow of demandRows) {
+      const region = demandRow.region || demandRow.network_region
+      const time = new Date(demandRow.interval).getTime()
+      const key = `${region}_${time}`
+      demandByRegionTime.set(key, demandRow.demand as number)
+    }
+
+    // Add demand to generation rows
+    for (const row of rows) {
+      const region = row.region || row.network_region
+      const time = new Date(row.interval).getTime()
+      const key = `${region}_${time}`
+      const demand = demandByRegionTime.get(key)
+      if (demand !== undefined) {
+        (row as any).demand = demand
+      }
+    }
+  }
+
+  // Convert to normalized snapshot
   return buildSnapshotFromRows(rows, latestTimestampMs)
 }
-
-/**
- * Loads the latest Australian emissions snapshot.
- *
- * Public API used by REST routes to serve AU emissions data.
- * Fetches real-time data from OpenElectricity and normalizes it
- * into the application's shared emissions schema.
- *
- * @returns Promise resolving to AU emissions snapshot with regional breakdowns
- * @throws {Error} When API key is missing or SDK call fails
- *
- * @example
- * ```ts
- * // In API route handler:
- * export const GET = async () => {
- *   const snapshot = await loadAuSnapshot()
- *   return Response.json(snapshot)
- * }
- * ```
- */
-export const loadAuSnapshot = fetchLatestSnapshot

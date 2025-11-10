@@ -69,16 +69,19 @@ export type OpenElectricityAggregationMethod = 'sum' | 'mean'
 
 /**
  * Parameters for network time-series data requests.
+ *
+ * Note: The SDK implementation expects secondaryGrouping as an array,
+ * despite the documentation showing it as a single value.
  */
 export interface OpenElectricityNetworkTimeSeriesParams {
   /** Time interval granularity */
   interval?: OpenElectricityInterval
-  /** Start date (ISO string in network local time) */
+  /** Start date (ISO string in network local time, timezone-naive) */
   dateStart?: string
-  /** End date (ISO string in network local time) */
+  /** End date (ISO string in network local time, timezone-naive) */
   dateEnd?: string
   /** Primary grouping dimension */
   primaryGrouping?: OpenElectricityPrimaryGrouping
-  /** Secondary grouping dimension */
-  secondaryGrouping?: OpenElectricitySecondaryGrouping
+  /** Secondary grouping dimensions (array, despite docs showing single value) */
+  secondaryGrouping?: OpenElectricitySecondaryGrouping[]
 }

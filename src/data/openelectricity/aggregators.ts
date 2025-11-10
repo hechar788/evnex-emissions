@@ -80,7 +80,9 @@ export const aggregateRows = (rows: OpenElectricityNetworkFueltechRow[]): Aggreg
   let countryPower = 0
 
   for (const row of rows) {
-    const regionKey = mapRegionCode(row.network_region as string | undefined)
+    // API returns 'region' when using secondary grouping, 'network_region' otherwise
+    const regionCode = (row.network_region || row.region) as string | undefined
+    const regionKey = mapRegionCode(regionCode)
     if (!regionKey) continue
 
     const fuel = mapFueltechToFuelType(row.fueltech ?? null)
@@ -104,7 +106,9 @@ export const aggregateRows = (rows: OpenElectricityNetworkFueltechRow[]): Aggreg
         return accumulator
       })()
 
-    if (demand > 0) {
+    // Demand is per-region per-interval, not per-fueltech
+    // Only update if we have a value (don't sum across fueltechs)
+    if (demand > 0 && region.demandMW === null) {
       region.demandMW = demand
       countryDemand += demand
     }
