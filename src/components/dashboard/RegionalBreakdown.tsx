@@ -6,6 +6,7 @@
  * @module components/dashboard/RegionalBreakdown
  */
 
+import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import type { RegionEmissionsSnapshot, CountryEmissionsSnapshot } from '@/types/emissions'
 import type { NemRegion } from '@/types/open_electricity'
@@ -17,6 +18,8 @@ interface RegionalBreakdownProps {
   nzData?: CountryEmissionsSnapshot
 }
 
+type SortOption = 'renewable' | 'intensity' | 'demand'
+
 /**
  * Carbon intensity breakdown component.
  *
@@ -25,22 +28,65 @@ interface RegionalBreakdownProps {
  * - New Zealand: National-level data
  */
 export function RegionalBreakdown({ country, auRegions, nzData }: RegionalBreakdownProps) {
+  const [sortBy, setSortBy] = useState<SortOption>('intensity')
+  
   const title = country === 'AU' ? 'Regional Breakdown of Carbon Intensity' : 'Carbon Intensity'
   const description =
     country === 'AU'
       ? 'Carbon intensity and generation across NEM regions'
       : 'Carbon intensity and generation across New Zealand'
 
+  // Sort regions for Australia based on selected sort option
+  const sortedRegions = country === 'AU' && auRegions
+    ? Object.entries(auRegions).sort(([, a], [, b]) => {
+        switch (sortBy) {
+          case 'renewable': {
+            const aRenewable = a.carbonIntensity.renewableShare ?? 0
+            const bRenewable = b.carbonIntensity.renewableShare ?? 0
+            return bRenewable - aRenewable // Highest to lowest
+          }
+          case 'intensity': {
+            return b.carbonIntensity.current - a.carbonIntensity.current // Highest to lowest
+          }
+          case 'demand': {
+            const aDemand = a.demandMW ?? 0
+            const bDemand = b.demandMW ?? 0
+            return bDemand - aDemand // Highest to lowest
+          }
+          default:
+            return 0
+        }
+      })
+    : []
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex-1">
+            <CardTitle>{title}</CardTitle>
+            <CardDescription>{description}</CardDescription>
+          </div>
+          {country === 'AU' && auRegions && (
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <span className="text-sm text-muted-foreground">Sort by:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortOption)}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:w-auto"
+              >
+                <option value="renewable">Renewable</option>
+                <option value="intensity">Intensity</option>
+                <option value="demand">Demand</option>
+              </select>
+            </div>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         {country === 'AU' && auRegions ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {Object.entries(auRegions).map(([region, regionData]) => (
+            {sortedRegions.map(([region, regionData]) => (
               <Card key={region} className="border-muted">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">

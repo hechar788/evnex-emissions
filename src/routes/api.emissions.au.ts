@@ -47,8 +47,6 @@ export const Route = createFileRoute('/api/emissions/au')({
             },
           })
         } catch (error) {
-          console.error('Failed to load AU emissions snapshot:', error)
-
           const errorPayload: ApiErrorPayload = {
             message: error instanceof Error ? error.message : 'Failed to fetch Australian emissions data',
             code: 'FETCH_ERROR',

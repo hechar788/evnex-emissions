@@ -12,6 +12,7 @@ export const getRouter = () => {
         staleTime: 5 * 60 * 1000, // 5 minutes - matches OpenElectricity's 5-min cadence
         gcTime: 10 * 60 * 1000, // 10 minutes garbage collection
         refetchOnWindowFocus: false,
+        refetchOnMount: false, // Prevent refetch on mount to avoid hydration mismatches with SSR-seeded data
         retry: 1,
       },
     },

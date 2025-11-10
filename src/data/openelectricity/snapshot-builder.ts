@@ -21,16 +21,27 @@ import type { AggregatedData, RegionAccumulator } from './aggregators'
 /**
  * Builds snapshot metadata with timestamp and source information.
  *
+ * Calculates stale status based on time since fetchedAt.
+ * Data is considered stale after 5 minutes (matching OpenElectricity's 5-min cadence).
+ *
  * @param timestampIso - ISO timestamp string for the snapshot
- * @returns SnapshotMetadata with network source and no caching
+ * @returns SnapshotMetadata with network source and calculated stale status
  * @internal
  */
-const buildMetadata = (timestampIso: string): SnapshotMetadata => ({
-  fetchedAt: timestampIso,
-  expiresAt: null,
-  stale: false,
-  source: 'network',
-})
+const buildMetadata = (timestampIso: string): SnapshotMetadata => {
+  const fetchedAt = new Date(timestampIso)
+  const now = new Date()
+  const ageMs = now.getTime() - fetchedAt.getTime()
+  const staleThreshold = 5 * 60 * 1000 // 5 minutes
+  const stale = ageMs > staleThreshold
+
+  return {
+    fetchedAt: timestampIso,
+    expiresAt: null,
+    stale,
+    source: 'network',
+  }
+}
 
 /**
  * Builds a single region snapshot from accumulated data.

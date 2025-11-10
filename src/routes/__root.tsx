@@ -3,8 +3,6 @@ import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from '@tanst
 import { TanStackDevtools } from '@tanstack/react-devtools'
 import type { QueryClient } from '@tanstack/react-query'
 
-import Header from '@/components/Header'
-
 import appCss from '../styles.css?url'
 
 interface RouterContext {
@@ -46,7 +44,6 @@ function RootDocument() {
       </head>
       <body>
         <QueryClientProvider client={queryClient}>
-          <Header />
           <Outlet />
           <TanStackDevtools
             config={{

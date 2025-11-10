@@ -21,6 +21,7 @@ export const emissionsQueryDefaults = {
   staleTime: 5 * 60 * 1000, // 5 minutes
   gcTime: 10 * 60 * 1000, // 10 minutes
   refetchOnWindowFocus: false,
+  refetchOnMount: false, // Prevent refetch on mount to avoid hydration mismatches with SSR-seeded data
   retry: 2,
 } satisfies Partial<UseQueryOptions>
 

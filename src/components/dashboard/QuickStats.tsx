@@ -11,8 +11,9 @@
 
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ClientOnly } from '@/components/ClientOnly'
 import type { CountryEmissionsSnapshot } from '@/types/emissions'
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
+import { Cell, Pie, PieChart, Tooltip } from 'recharts'
 
 interface QuickStatsProps {
   data: CountryEmissionsSnapshot
@@ -172,8 +173,8 @@ export function QuickStats({ data }: QuickStatsProps) {
         </CardContent>
         {/* Absolutely positioned pie chart - centered vertically in entire card */}
         <div className="absolute top-1/2 right-4 -translate-y-1/2">
-          <ResponsiveContainer width={120} height={120}>
-            <PieChart>
+          <ClientOnly>
+            <PieChart width={120} height={120}>
               <Pie
                 data={pieData}
                 dataKey="value"
@@ -189,7 +190,7 @@ export function QuickStats({ data }: QuickStatsProps) {
               </Pie>
               <Tooltip content={<RenewableTooltip />} />
             </PieChart>
-          </ResponsiveContainer>
+          </ClientOnly>
         </div>
       </Card>
     </div>

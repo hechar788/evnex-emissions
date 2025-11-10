@@ -4,84 +4,28 @@
  * Displays side-by-side comparison of Australia and New Zealand metrics:
  * - Carbon intensity comparison
  * - Total demand comparison
+ * - Renewable energy comparison
+ * - Generation mix comparison
  *
- * @module components/dashboard/CompareView
+ * @module components/dashboard/compare/CompareView
  */
 
-import { Badge } from '@/components/ui/badge'
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ClientOnly } from '@/components/ClientOnly'
+import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+
 import type { CountryEmissionsSnapshot } from '@/types/emissions'
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
-import { GenerationMixComparison } from './GenerationMixComparison'
+import { GenerationMixComparison } from './compare/GenerationMixComparison'
+import { CarbonIntensityCard } from './compare/CarbonIntensityCard'
+import { RenewableEnergyCard } from './compare/RenewableEnergyCard'
+import { TotalDemandCard } from './compare/TotalDemandCard'
+import { ViewModeTabs } from './compare/ViewModeTabs'
+import { categorizeFuelTypes } from './compare/utils'
 
 interface CompareViewProps {
   auData: CountryEmissionsSnapshot
   nzData: CountryEmissionsSnapshot
-}
-
-/**
- * Categorize fuel types into renewable and non-renewable.
- */
-const categorizeFuelTypes = (generationMix: CountryEmissionsSnapshot['generationMix']) => {
-  const renewableFuels = ['hydro', 'wind', 'solar', 'geothermal', 'biomass']
-
-  const renewable: Array<{ fuel: string; percentage: number }> = []
-  const nonRenewable: Array<{ fuel: string; percentage: number }> = []
-
-  let renewableTotal = 0
-  let nonRenewableTotal = 0
-
-  generationMix.forEach((entry) => {
-    if (renewableFuels.includes(entry.fuel)) {
-      renewable.push({ fuel: entry.fuel, percentage: entry.percentage })
-      renewableTotal += entry.percentage
-    } else {
-      nonRenewable.push({ fuel: entry.fuel, percentage: entry.percentage })
-      nonRenewableTotal += entry.percentage
-    }
-  })
-
-  return {
-    renewable,
-    nonRenewable,
-    renewableTotal,
-    nonRenewableTotal,
-  }
-}
-
-/**
- * Custom tooltip for renewable energy pie chart.
- */
-const RenewableTooltip = ({ active, payload }: any) => {
-  if (active && payload && payload.length) {
-    const data = payload[0].payload
-    return (
-      <div className="rounded-lg border border-border bg-background p-3 shadow-lg min-w-44">
-        <p className="mb-2 font-semibold">{data.name}</p>
-        <p className="mb-2 text-sm font-mono">
-          {data.value.toFixed(1)}% of total
-        </p>
-        <div className="border-t border-muted pt-2 space-y-1">
-          <p className="text-xs font-semibold text-muted-foreground mb-1">Fuel Types:</p>
-          {data.fuels.map((fuel: { fuel: string; percentage: number }) => (
-            <p key={fuel.fuel} className="text-xs capitalize">
-              {fuel.fuel}: {fuel.percentage.toFixed(1)}%
-            </p>
-          ))}
-        </div>
-      </div>
-    )
-  }
-  return null
-}
-
-/**
- * Determine carbon intensity severity badge.
- */
-const getIntensityBadge = (intensity: number) => {
-  if (intensity < 200) return <Badge variant="default" className="bg-green-600 px-2.5 py-1 text-sm">Low</Badge>
-  if (intensity < 400) return <Badge variant="default" className="bg-yellow-600 px-2.5 py-1 text-sm">Medium</Badge>
-  return <Badge variant="destructive" className="px-2.5 py-1 text-sm">High</Badge>
 }
 
 /**
@@ -91,8 +35,10 @@ const getIntensityBadge = (intensity: number) => {
  * - Row 1: Carbon intensity for AU and NZ
  * - Row 2: Total demand for AU and NZ
  * - Row 3: Renewable energy for AU and NZ
+ * - Row 4: Generation mix comparison
  */
 export function CompareView({ auData, nzData }: CompareViewProps) {
+  const [viewMode, setViewMode] = useState<'grid' | 'chart'>('grid')
   const auCategories = categorizeFuelTypes(auData.generationMix)
   const nzCategories = categorizeFuelTypes(nzData.generationMix)
 
@@ -126,174 +72,216 @@ export function CompareView({ auData, nzData }: CompareViewProps) {
     },
   ]
 
+  // Combined chart data for all metrics
+  const combinedChartData = [
+    {
+      metric: 'Carbon Intensity',
+      Australia: auData.carbonIntensity.current,
+      'New Zealand': nzData.carbonIntensity.current,
+      unit: 'gCO₂/kWh',
+    },
+    {
+      metric: 'Total Demand',
+      Australia: auData.totalDemandMW !== null ? auData.totalDemandMW / 1000 : 0,
+      'New Zealand': nzData.totalDemandMW !== null ? nzData.totalDemandMW / 1000 : 0,
+      unit: 'GW',
+    },
+    {
+      metric: 'Renewable Energy',
+      Australia: auData.carbonIntensity.renewableShare !== null ? auData.carbonIntensity.renewableShare : 0,
+      'New Zealand': nzData.carbonIntensity.renewableShare !== null ? nzData.carbonIntensity.renewableShare : 0,
+      unit: '%',
+    },
+  ]
+
+  // Custom tooltip for charts
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      // Find the unit for this metric
+      const dataItem = combinedChartData.find((item) => item.metric === label)
+      const unit = dataItem?.unit || ''
+      
+      return (
+        <div className="rounded-lg border border-border bg-background p-3 shadow-lg">
+          <p className="mb-2 font-semibold">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <p key={index} className="text-sm" style={{ color: entry.color }}>
+              {entry.name}: {typeof entry.value === 'number' ? entry.value.toFixed(2) : entry.value} {unit}
+            </p>
+          ))}
+        </div>
+      )
+    }
+    return null
+  }
+
   return (
     <div className="space-y-6">
-      {/* Carbon Intensity Comparison */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Australia Carbon Intensity */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-medium text-muted-foreground">
-                Australia Carbon Intensity
-              </CardTitle>
-              {getIntensityBadge(auData.carbonIntensity.current)}
-            </div>
-          </CardHeader>
-          <CardContent className="pb-2">
-            <div className="flex items-baseline justify-between">
-              <div>
-                <div className="text-3xl font-bold">
-                  {auData.carbonIntensity.current.toFixed(0)}
-                </div>
-                <p className="text-sm text-muted-foreground">gCO₂/kWh</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* New Zealand Carbon Intensity */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-medium text-muted-foreground">
-                New Zealand Carbon Intensity
-              </CardTitle>
-              {getIntensityBadge(nzData.carbonIntensity.current)}
-            </div>
-          </CardHeader>
-          <CardContent className="pb-2">
-            <div className="flex items-baseline justify-between">
-              <div>
-                <div className="text-3xl font-bold">
-                  {nzData.carbonIntensity.current.toFixed(0)}
-                </div>
-                <p className="text-sm text-muted-foreground">gCO₂/kWh</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* View Mode Tabs - Desktop Only */}
+      <div className="hidden md:block">
+        <ViewModeTabs viewMode={viewMode} onViewModeChange={setViewMode} />
       </div>
 
-      {/* Total Demand Comparison */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Australia Total Demand */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-medium text-muted-foreground">
-              Australia Total Demand
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-2">
-            <div className="text-3xl font-bold">
-              {auData.totalDemandMW !== null ? (auData.totalDemandMW / 1000).toFixed(2) : 'N/A'}
+      {/* Grid View - Desktop Only */}
+      {viewMode === 'grid' && (
+        <div className="hidden md:block">
+          {/* Two Column Layout with Country Headings */}
+          <div className="grid gap-4 py-6 md:grid-cols-2">
+            {/* Australia Column */}
+            <div className="space-y-4">
+              <h2 className="text-center text-xl font-semibold text-foreground">Australia</h2>
+              <CarbonIntensityCard 
+                intensity={auData.carbonIntensity.current} 
+              />
+              <TotalDemandCard 
+                totalDemandMW={auData.totalDemandMW} 
+              />
+              <RenewableEnergyCard
+                renewableShare={auData.carbonIntensity.renewableShare}
+                pieData={auPieData}
+              />
             </div>
-            <p className="text-sm text-muted-foreground">Gigawatts (GW)</p>
-          </CardContent>
-        </Card>
 
-        {/* New Zealand Total Demand */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-medium text-muted-foreground">
-              New Zealand Total Demand
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-2">
-            <div className="text-3xl font-bold">
-              {nzData.totalDemandMW !== null ? (nzData.totalDemandMW / 1000).toFixed(2) : 'N/A'}
+            {/* New Zealand Column */}
+            <div className="space-y-4">
+              <h2 className="text-center text-xl font-semibold text-foreground">New Zealand</h2>
+              <CarbonIntensityCard 
+                intensity={nzData.carbonIntensity.current} 
+              />
+              <TotalDemandCard 
+                totalDemandMW={nzData.totalDemandMW} 
+              />
+              <RenewableEnergyCard
+                renewableShare={nzData.carbonIntensity.renewableShare}
+                pieData={nzPieData}
+              />
             </div>
-            <p className="text-sm text-muted-foreground">Gigawatts (GW)</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Renewable Energy Comparison */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Australia Renewable Energy */}
-        <Card className="relative">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-medium text-muted-foreground">
-              Australia Renewable Energy
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-2">
-            <div>
-              <div className="text-3xl font-bold">
-                {auData.carbonIntensity.renewableShare !== null
-                  ? auData.carbonIntensity.renewableShare.toFixed(1)
-                  : 'N/A'}
-                {auData.carbonIntensity.renewableShare !== null && (
-                  <span className="text-2xl">%</span>
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground">of total generation</p>
-            </div>
-          </CardContent>
-          <div className="absolute top-1/2 right-4 -translate-y-1/2">
-            <ResponsiveContainer width={120} height={120}>
-              <PieChart>
-                <Pie
-                  data={auPieData}
-                  dataKey="value"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={30}
-                  outerRadius={50}
-                  paddingAngle={2}
-                >
-                  {auPieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip content={<RenewableTooltip />} />
-              </PieChart>
-            </ResponsiveContainer>
           </div>
-        </Card>
+        </div>
+      )}
 
-        {/* New Zealand Renewable Energy */}
-        <Card className="relative">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-medium text-muted-foreground">
-              New Zealand Renewable Energy
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-2">
-            <div>
-              <div className="text-3xl font-bold">
-                {nzData.carbonIntensity.renewableShare !== null
-                  ? nzData.carbonIntensity.renewableShare.toFixed(1)
-                  : 'N/A'}
-                {nzData.carbonIntensity.renewableShare !== null && (
-                  <span className="text-2xl">%</span>
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground">of total generation</p>
-            </div>
-          </CardContent>
-          <div className="absolute top-1/2 right-4 -translate-y-1/2">
-            <ResponsiveContainer width={120} height={120}>
-              <PieChart>
-                <Pie
-                  data={nzPieData}
-                  dataKey="value"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={30}
-                  outerRadius={50}
-                  paddingAngle={2}
-                >
-                  {nzPieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip content={<RenewableTooltip />} />
-              </PieChart>
-            </ResponsiveContainer>
+      {/* Chart View - Mobile Always, Desktop When Selected */}
+      <>
+        {/* Mobile: Always show chart */}
+        <div className="block md:hidden space-y-6">
+          {/* Combined Comparison Chart */}
+          <Card className="w-full">
+            <CardHeader>
+              <CardTitle>Metrics Comparison</CardTitle>
+            </CardHeader>
+            <CardContent className="p-2 sm:p-6">
+              <ClientOnly>
+                <ResponsiveContainer width="100%" height={400}>
+                  <BarChart 
+                    data={combinedChartData} 
+                    margin={{ top: 20, right: 10, left: 0, bottom: 20 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis 
+                      dataKey="metric" 
+                      className="text-xs sm:text-sm"
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    />
+                    <YAxis 
+                      className="text-xs sm:text-sm"
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend 
+                      wrapperStyle={{ paddingTop: '10px', fontSize: '14px' }}
+                      iconSize={14}
+                    />
+                    <Bar 
+                      dataKey="Australia" 
+                      fill="#eab308" 
+                      name="Australia"
+                    />
+                    <Bar 
+                      dataKey="New Zealand" 
+                      fill="#84cc16" 
+                      name="New Zealand"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ClientOnly>
+            </CardContent>
+          </Card>
+
+          {/* Renewable Energy Cards (kept in chart view) */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <RenewableEnergyCard
+              renewableShare={auData.carbonIntensity.renewableShare}
+              pieData={auPieData}
+              country="Australia"
+            />
+            <RenewableEnergyCard
+              renewableShare={nzData.carbonIntensity.renewableShare}
+              pieData={nzPieData}
+              country="New Zealand"
+            />
           </div>
-        </Card>
-      </div>
+        </div>
+
+        {/* Desktop: Show chart when selected */}
+        {viewMode === 'chart' && (
+          <div className="hidden md:block space-y-6">
+            {/* Combined Comparison Chart */}
+            <Card className="w-full">
+              <CardHeader>
+                <CardTitle>Metrics Comparison</CardTitle>
+              </CardHeader>
+              <CardContent className="p-2 sm:p-6">
+                <ClientOnly>
+                  <ResponsiveContainer width="100%" height={400}>
+                    <BarChart 
+                      data={combinedChartData} 
+                      margin={{ top: 20, right: 10, left: 0, bottom: 20 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis 
+                        dataKey="metric" 
+                        className="text-xs sm:text-sm"
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      />
+                      <YAxis 
+                        className="text-xs sm:text-sm"
+                        tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Legend 
+                        wrapperStyle={{ paddingTop: '10px', fontSize: '14px' }}
+                        iconSize={14}
+                      />
+                      <Bar 
+                        dataKey="Australia" 
+                        fill="#eab308" 
+                        name="Australia"
+                      />
+                      <Bar 
+                        dataKey="New Zealand" 
+                        fill="#84cc16" 
+                        name="New Zealand"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ClientOnly>
+              </CardContent>
+            </Card>
+
+            {/* Renewable Energy Cards (kept in chart view) */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <RenewableEnergyCard
+                renewableShare={auData.carbonIntensity.renewableShare}
+                pieData={auPieData}
+              />
+              <RenewableEnergyCard
+                renewableShare={nzData.carbonIntensity.renewableShare}
+                pieData={nzPieData}
+              />
+            </div>
+          </div>
+        )}
+      </>
 
       {/* Generation Mix Comparison */}
       <GenerationMixComparison
@@ -303,3 +291,4 @@ export function CompareView({ auData, nzData }: CompareViewProps) {
     </div>
   )
 }
+

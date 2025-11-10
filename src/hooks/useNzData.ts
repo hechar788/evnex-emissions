@@ -14,7 +14,7 @@ import {
   emissionsQueryDefaults,
   fetchJsonWithTimeout,
 } from '@/lib/query-utils'
-import type { CountryEmissionsSnapshot } from '@/types/emissions'
+import type { CountryEmissionsSnapshot, FuelType } from '@/types/emissions'
 
 /**
  * Query key factory for NZ data.
@@ -96,13 +96,11 @@ const transformNzData = async (): Promise<CountryEmissionsSnapshot> => {
         timestamp = latest.timestamp
       }
     }
-  } else {
-    console.warn('Unexpected NZ carbon intensity API structure:', carbonData)
   }
 
   // Parse generation data to calculate total demand and generation mix
   let totalDemandMW: number | null = null
-  const generationMix: Array<{ fuel: string; megawatts: number; percentage: number }> = []
+  const generationMix: Array<{ fuel: FuelType; megawatts: number; percentage: number }> = []
 
   if (
     typeof generationData === 'object' &&
@@ -116,7 +114,7 @@ const transformNzData = async (): Promise<CountryEmissionsSnapshot> => {
 
       if ('generation_type' in latest && Array.isArray(latest.generation_type)) {
         // Map NZ fuel codes to normalized fuel types
-        const fuelTypeMap: Record<string, string> = {
+        const fuelTypeMap: Record<string, FuelType> = {
           bat: 'battery',
           cg: 'coal', // Coal/gas (legacy)
           cog: 'cogeneration',
@@ -130,7 +128,7 @@ const transformNzData = async (): Promise<CountryEmissionsSnapshot> => {
 
         // First pass: calculate total MWh
         let totalMWh = 0
-        const fuelData: Array<{ fuel: string; mwh: number }> = []
+        const fuelData: Array<{ fuel: FuelType; mwh: number }> = []
 
         latest.generation_type.forEach((typeData: any) => {
           // Find the _mwh field for this fuel type
@@ -138,7 +136,7 @@ const transformNzData = async (): Promise<CountryEmissionsSnapshot> => {
           if (mwhKey && typeof typeData[mwhKey] === 'number') {
             const mwh = typeData[mwhKey]
             const fuelCode = mwhKey.replace('_mwh', '')
-            const fuel = fuelTypeMap[fuelCode] || 'other'
+            const fuel: FuelType = fuelTypeMap[fuelCode] || 'other'
 
             totalMWh += mwh
             fuelData.push({ fuel, mwh })
@@ -163,6 +161,9 @@ const transformNzData = async (): Promise<CountryEmissionsSnapshot> => {
     }
   }
 
+  // NZ data is always fresh when just fetched
+  const stale = false
+
   return {
     country: 'NZ',
     timestamp,
@@ -179,7 +180,7 @@ const transformNzData = async (): Promise<CountryEmissionsSnapshot> => {
     metadata: {
       fetchedAt: now,
       expiresAt: null,
-      stale: false,
+      stale,
       source: 'network',
     },
   }
@@ -206,9 +207,28 @@ const transformNzData = async (): Promise<CountryEmissionsSnapshot> => {
  * ```
  */
 export function useNzData() {
-  return useQuery({
+  const query = useQuery({
     queryKey: nzQueryKeys.current(),
     queryFn: transformNzData,
     ...emissionsQueryDefaults,
   })
+
+  return {
+    /** NZ emissions snapshot */
+    data: query.data,
+    /** Whether a refetch is in progress */
+    isFetching: query.isFetching,
+    /** Whether query is loading (initial load) */
+    isLoading: query.isLoading,
+    /** Trigger manual refetch */
+    refetch: query.refetch,
+    /** Snapshot metadata */
+    metadata: query.data?.metadata,
+    /** Last successful fetch timestamp */
+    dataUpdatedAt: query.dataUpdatedAt,
+    /** Error state (if any) */
+    error: query.error,
+    /** Whether query is in error state */
+    isError: query.isError,
+  }
 }

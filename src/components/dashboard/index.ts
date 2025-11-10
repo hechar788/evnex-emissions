@@ -8,8 +8,8 @@
 
 export { QuickStats } from './QuickStats'
 export { GenerationMix } from './GenerationMix'
-export { GenerationMixComparison } from './GenerationMixComparison'
+export { GenerationMixComparison } from './compare/GenerationMixComparison'
 export { AusRegionalData } from './AusRegionalData'
 export { NzRegionalData } from './NzRegionalData'
 export { RegionalBreakdown } from './RegionalBreakdown'
-export { CompareView } from './CompareView'
+export { CompareView } from './compare'

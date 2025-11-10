@@ -47,15 +47,16 @@ import { getOpenElectricityClient } from './openelectricity/client'
 export const loadAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
   const client = getOpenElectricityClient()
 
-  // Request last 3 days of data to ensure we capture the latest available data
+  // Request only the last 2 hours of data to ensure we get the latest available 5-minute window
+  // This is more efficient than fetching 3 days and ensures we get fresh data
   const endDate = new Date()
   const startDate = new Date(endDate)
-  startDate.setDate(startDate.getDate() - 3)
+  startDate.setHours(startDate.getHours() - 2)
 
   const dateEnd = endDate.toISOString()
   const dateStart = startDate.toISOString()
 
-  // Fetch power, energy, and emissions from network data
+  // Fetch power, energy, and emissions from network data (grouped by region and fueltech)
   const { datatable } = await client.getNetworkData('NEM', ['power', 'energy', 'emissions'], {
     interval: '5m',
     dateStart,
@@ -64,10 +65,17 @@ export const loadAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
     secondaryGrouping: ['fueltech'],
   })
 
-  // Try to fetch demand separately from market data (different endpoint)
+  if (!datatable) {
+    throw new Error(
+      'OpenElectricity response did not include a datatable. ' +
+      'Check API key validity and network connectivity.'
+    )
+  }
+
+  // Fetch demand data separately using getMarket (demand is per-region, not per-fueltech)
   let demandData: any = null
   try {
-    const { datatable: demandTable } = await client.getMarket('NEM', ['demand'], {
+    const { datatable: demandTable } = await (client as any).getMarket('NEM', ['demand'], {
       interval: '5m',
       dateStart,
       dateEnd,
@@ -78,21 +86,33 @@ export const loadAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
     // Demand data not available - will use generation as proxy
   }
 
-  if (!datatable) {
-    throw new Error(
-      'OpenElectricity response did not include a datatable. ' +
-      'Check API key validity and network connectivity.'
-    )
-  }
-
   // Extract timestamp and rows
-  const latestTimestampValue = datatable.getLatestTimestamp()
-  const latestTimestampMs =
-    typeof latestTimestampValue === 'number'
-      ? latestTimestampValue
-      : new Date(latestTimestampValue).getTime()
-
   const rows = datatable.getRows() as OpenElectricityNetworkFueltechRow[]
+  
+  // Find the actual latest timestamp from the rows themselves
+  // This is more reliable than getLatestTimestamp() which might return cached values
+  // For OpenElectricityNetworkFueltechRow, interval is always a string
+  let latestTimestampMs = 0
+  for (const row of rows) {
+    if (row.interval) {
+      // interval is always a string for network fueltech rows
+      const rowTimestamp = new Date(row.interval as string).getTime()
+      if (rowTimestamp > latestTimestampMs) {
+        latestTimestampMs = rowTimestamp
+      }
+    }
+  }
+  
+  // Fallback to getLatestTimestamp() if no rows found
+  if (latestTimestampMs === 0) {
+    const apiLatestTimestampValue = datatable.getLatestTimestamp()
+    latestTimestampMs =
+      typeof apiLatestTimestampValue === 'number'
+        ? apiLatestTimestampValue
+        : new Date(apiLatestTimestampValue).getTime()
+  }
+  
+  // OpenElectricity data typically has a 5-15 minute delay, so data up to 20 minutes old is normal
 
   // Merge demand data into rows if available
   if (demandData) {
@@ -107,7 +127,7 @@ export const loadAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
       demandByRegionTime.set(key, demandRow.demand as number)
     }
 
-    // Add demand to generation rows
+    // Merge demand into main rows
     for (const row of rows) {
       const region = row.region || row.network_region
       const time = new Date(row.interval).getTime()
@@ -120,5 +140,5 @@ export const loadAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
   }
 
   // Convert to normalized snapshot
-  return buildSnapshotFromRows(rows, latestTimestampMs)
+  return buildSnapshotFromRows(rows, [], latestTimestampMs)
 }

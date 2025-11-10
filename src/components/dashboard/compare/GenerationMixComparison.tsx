@@ -8,7 +8,8 @@
  */
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import type { GenerationMix } from '@/types/emissions'
+import { ClientOnly } from '@/components/ClientOnly'
+import type { FuelType, GenerationMix } from '@/types/emissions'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
 interface GenerationMixComparisonProps {
@@ -24,13 +25,13 @@ interface GenerationMixComparisonProps {
  */
 const transformDataForChart = (auMix: GenerationMix, nzMix: GenerationMix) => {
   // Get all unique fuel types from both countries
-  const allFuelTypes = new Set<string>()
+  const allFuelTypes = new Set<FuelType>()
   auMix.forEach((entry) => allFuelTypes.add(entry.fuel))
   nzMix.forEach((entry) => allFuelTypes.add(entry.fuel))
 
   // Create a map for easy lookup
-  const auMap = new Map(auMix.map((entry) => [entry.fuel, entry.megawatts]))
-  const nzMap = new Map(nzMix.map((entry) => [entry.fuel, entry.megawatts]))
+  const auMap = new Map<FuelType, number>(auMix.map((entry) => [entry.fuel, entry.megawatts]))
+  const nzMap = new Map<FuelType, number>(nzMix.map((entry) => [entry.fuel, entry.megawatts]))
 
   // Transform into chart data format
   const chartData = Array.from(allFuelTypes).map((fuel) => ({
@@ -93,47 +94,49 @@ export function GenerationMixComparison({
         </CardDescription>
       </CardHeader>
       <CardContent className="p-2 sm:p-6">
-        <ResponsiveContainer width="100%" height={450}>
-          <LineChart data={chartData} margin={{ top: 20, right: 10, left: 0, bottom: 80 }}>
-            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-            <XAxis
-              dataKey="fuel"
-              className="text-xs sm:text-sm"
-              tick={{ fill: 'hsl(var(--muted-foreground))' }}
-              angle={-45}
-              textAnchor="end"
-              height={100}
-              interval={0}
-            />
-            <YAxis
-              label={{ value: 'MW', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
-              className="text-xs sm:text-sm"
-              tick={{ fill: 'hsl(var(--muted-foreground))' }}
-              width={50}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend
-              wrapperStyle={{ paddingTop: '10px', fontSize: '14px' }}
-              iconSize={14}
-            />
-            <Line
-              type="monotone"
-              dataKey="Australia"
-              stroke="#eab308"
-              strokeWidth={2.5}
-              dot={{ fill: '#eab308', r: 4 }}
-              activeDot={{ r: 6 }}
-            />
-            <Line
-              type="monotone"
-              dataKey="New Zealand"
-              stroke="#84cc16"
-              strokeWidth={2.5}
-              dot={{ fill: '#84cc16', r: 4 }}
-              activeDot={{ r: 6 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+        <ClientOnly>
+          <ResponsiveContainer width="100%" height={450}>
+            <LineChart data={chartData} margin={{ top: 20, right: 10, left: 0, bottom: 80 }}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+              <XAxis
+                dataKey="fuel"
+                className="text-xs sm:text-sm"
+                tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                angle={-45}
+                textAnchor="end"
+                height={100}
+                interval={0}
+              />
+              <YAxis
+                label={{ value: 'MW', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
+                className="text-xs sm:text-sm"
+                tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                width={50}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend
+                wrapperStyle={{ paddingTop: '10px', fontSize: '14px' }}
+                iconSize={14}
+              />
+              <Line
+                type="monotone"
+                dataKey="Australia"
+                stroke="#eab308"
+                strokeWidth={2.5}
+                dot={{ fill: '#eab308', r: 4 }}
+                activeDot={{ r: 6 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="New Zealand"
+                stroke="#84cc16"
+                strokeWidth={2.5}
+                dot={{ fill: '#84cc16', r: 4 }}
+                activeDot={{ r: 6 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </ClientOnly>
       </CardContent>
     </Card>
   )

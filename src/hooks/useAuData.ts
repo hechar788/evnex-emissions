@@ -33,6 +33,7 @@ const fetchAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
  * - Manual refetch trigger
  * - Metadata (fetchedAt, source, stale)
  *
+ * @param initialData - Optional initial data from SSR loader to prevent hydration mismatches
  * @returns AU emissions data with controls
  *
  * @example
@@ -56,10 +57,13 @@ const fetchAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
  * }
  * ```
  */
-export function useAuData() {
+export function useAuData(initialData?: CountryEmissionsSnapshot) {
   const query = useSuspenseQuery({
     queryKey: auQueryKeys.current(),
     queryFn: fetchAuSnapshot,
+    initialData,
+    // Mark initial data as fresh to prevent refetch during hydration
+    initialDataUpdatedAt: initialData ? new Date(initialData.metadata.fetchedAt).getTime() : undefined,
     ...emissionsQueryDefaults,
   })
 
@@ -74,6 +78,10 @@ export function useAuData() {
     metadata: query.data.metadata,
     /** Last successful fetch timestamp */
     dataUpdatedAt: query.dataUpdatedAt,
+    /** Error state (if any) */
+    error: query.error,
+    /** Whether query is in error state */
+    isError: query.isError,
   }
 }
 
