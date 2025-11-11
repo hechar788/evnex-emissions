@@ -13,7 +13,6 @@
 
 import type { CountryEmissionsSnapshot } from '@/types/emissions'
 import type { OpenElectricityNetworkFueltechRow } from '@/types/open_electricity/datatable'
-import { parseTimezoneOffset } from '@/lib/time-utils'
 
 import { buildSnapshotFromRows } from './openelectricity/aggregation'
 import { getOpenElectricityClient } from './openelectricity/client'
@@ -24,15 +23,13 @@ import { getOpenElectricityClient } from './openelectricity/client'
  * Workflow:
  * 1. Gets singleton SDK client (requires OPEN_ELECTRICITY_API_KEY env var)
  * 2. Requests 5-minute NEM network data grouped by region and fueltech
- * 3. Extracts network timezone offset for proper timestamp interpretation
- * 4. Corrects timestamps (SDK parses timezone-naive timestamps as UTC)
- * 5. Extracts latest timestamp interval
- * 6. Transforms rows into normalized snapshot via aggregation pipeline
+ * 3. Extracts latest timestamp interval
+ * 4. Transforms rows into normalized snapshot via aggregation pipeline
  *
- * Timezone Handling:
- * The OpenElectricity API returns timezone-naive timestamps (e.g., "2024-01-15T10:30:00")
- * that represent local AEST/AEDT time. The SDK's Date parser interprets these as UTC,
- * causing a 10-11 hour offset. We correct this by subtracting the network timezone offset.
+ * Timestamp Handling:
+ * The OpenElectricity API returns timezone-naive timestamps (e.g., "2024-01-15T10:30:00").
+ * JavaScript's Date parser interprets these as UTC, and we use them as-is.
+ * All timestamps are displayed in UTC throughout the application.
  *
  * Data includes:
  * - Country-level metrics (total demand, carbon intensity, generation mix)
@@ -54,17 +51,42 @@ import { getOpenElectricityClient } from './openelectricity/client'
 export const loadAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
   const client = getOpenElectricityClient()
 
-  // Request only the last 2 hours of data to ensure we get the latest available 5-minute window
-  // This is more efficient than fetching 3 days and ensures we get fresh data
-  const endDate = new Date()
-  const startDate = new Date(endDate)
-  startDate.setHours(startDate.getHours() - 2)
+  // Request the last 24 hours of data to ensure we get the latest available data
+  // The API expects timezone-naive ISO strings in AEST/AEDT (network local time)
+  // Convert UTC to AEST by adding 10 hours (AEST = UTC+10, AEDT = UTC+11, but we'll use +10 as default)
+  const now = new Date()
+  const endDate = new Date(now)
+  const startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000) // 24 hours ago
+  
+  // Convert to AEST (UTC+10) - add 10 hours to get AEST time
+  const aestOffsetMs = 10 * 60 * 60 * 1000
+  const endDateAEST = new Date(endDate.getTime() + aestOffsetMs)
+  const startDateAEST = new Date(startDate.getTime() + aestOffsetMs)
+  
+  // Format as timezone-naive ISO string (API expects AEST time)
+  const formatTime = (date: Date): string => {
+    const year = date.getUTCFullYear()
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+    const day = String(date.getUTCDate()).padStart(2, '0')
+    const hours = String(date.getUTCHours()).padStart(2, '0')
+    const minutes = String(date.getUTCMinutes()).padStart(2, '0')
+    const seconds = String(date.getUTCSeconds()).padStart(2, '0')
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
+  }
+  
+  const dateEnd = formatTime(endDateAEST)
+  const dateStart = formatTime(startDateAEST)
 
-  const dateEnd = endDate.toISOString()
-  const dateStart = startDate.toISOString()
+  // Log the date range being requested for debugging
+  console.log('[AU Data Fetch] Requesting data range:', {
+    dateStart,
+    dateEnd,
+    currentUTC: new Date().toISOString(),
+    currentUTCTime: Date.now(),
+  })
 
   // Fetch power, energy, and emissions from network data (grouped by region and fueltech)
-  const { response, datatable } = await client.getNetworkData('NEM', ['power', 'energy', 'emissions'], {
+  const { datatable } = await client.getNetworkData('NEM', ['power', 'energy', 'emissions'], {
     interval: '5m',
     dateStart,
     dateEnd,
@@ -79,11 +101,8 @@ export const loadAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
     )
   }
 
-  // Extract network timezone offset for proper timestamp interpretation
-  // The SDK parses timezone-naive timestamps (e.g., "2024-01-15T10:30:00") as if they're in UTC,
-  // but they're actually in network local time (AEST/AEDT). We need to correct this.
-  const timezoneOffset = response?.data?.[0]?.network_timezone_offset || '+10:00'
-  const offsetMs = parseTimezoneOffset(timezoneOffset)
+  // Note: We're using timestamps as-is (parsed as UTC by JavaScript)
+  // No timezone corrections needed - displaying in UTC
 
   // Fetch demand data separately using getMarket (demand is per-region, not per-fueltech)
   let demandData: any = null
@@ -102,21 +121,29 @@ export const loadAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
   // Extract timestamp and rows
   const rows = datatable.getRows() as OpenElectricityNetworkFueltechRow[]
 
-  // Find the actual latest timestamp from the rows themselves
-  // This is more reliable than getLatestTimestamp() which might return cached values
-  // For OpenElectricityNetworkFueltechRow, interval is always a string
+  // Find the latest timestamp from the rows themselves
+  // JavaScript parses timezone-naive timestamps as UTC - we'll use them as-is
   let latestTimestampMs = 0
+  let latestIntervalString = ''
   for (const row of rows) {
     if (row.interval) {
-      // interval is always a string for network fueltech rows
-      const rowTimestamp = new Date(row.interval as string).getTime()
-      if (rowTimestamp > latestTimestampMs) {
-        latestTimestampMs = rowTimestamp
+      const intervalMs = new Date(row.interval as string).getTime()
+      if (intervalMs > latestTimestampMs) {
+        latestTimestampMs = intervalMs
+        latestIntervalString = row.interval as string
       }
     }
   }
-
-  // Fallback to getLatestTimestamp() if no rows found
+  
+  // Log the latest timestamp found
+  console.log('[AU Data Fetch] Latest data timestamp:', {
+    intervalString: latestIntervalString,
+    timestampMs: latestTimestampMs,
+    timestampISO: new Date(latestTimestampMs).toISOString(),
+    ageMinutes: Math.round((Date.now() - latestTimestampMs) / 1000 / 60),
+  })
+  
+  // Fallback to datatable method if no rows found
   if (latestTimestampMs === 0) {
     const apiLatestTimestampValue = datatable.getLatestTimestamp()
     latestTimestampMs =
@@ -125,33 +152,23 @@ export const loadAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
         : new Date(apiLatestTimestampValue).getTime()
   }
 
-  // Correct the timestamp for timezone handling
-  // The SDK parses timezone-naive timestamps as UTC, but they're actually in network local time
-  // We need to subtract the offset to get the correct UTC timestamp
-  // Example: "10:30:00" AEST (+10) was parsed as "10:30:00 UTC", but should be "00:30:00 UTC"
-  latestTimestampMs = latestTimestampMs - offsetMs
-
-  // OpenElectricity data typically has a 5-15 minute delay, so data up to 20 minutes old is normal
-
   // Merge demand data into rows if available
   if (demandData) {
     const demandRows = demandData.getRows()
     const demandByRegionTime = new Map<string, number>()
 
     // Build lookup map of demand by region and timestamp
-    // Apply the same timezone correction to demand timestamps
     for (const demandRow of demandRows) {
       const region = demandRow.region || demandRow.network_region
-      const time = new Date(demandRow.interval).getTime() - offsetMs
+      const time = new Date(demandRow.interval).getTime()
       const key = `${region}_${time}`
       demandByRegionTime.set(key, demandRow.demand as number)
     }
 
     // Merge demand into main rows
-    // Apply the same timezone correction to row timestamps for matching
     for (const row of rows) {
       const region = row.region || row.network_region
-      const time = new Date(row.interval).getTime() - offsetMs
+      const time = new Date(row.interval).getTime()
       const key = `${region}_${time}`
       const demand = demandByRegionTime.get(key)
       if (demand !== undefined) {
@@ -161,5 +178,6 @@ export const loadAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
   }
 
   // Convert to normalized snapshot
+  // Use timestamps as-is (parsed as UTC by JavaScript)
   return buildSnapshotFromRows(rows, [], latestTimestampMs)
 }

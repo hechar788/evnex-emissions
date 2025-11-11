@@ -25,8 +25,12 @@ interface DashboardHeaderProps {
   onToggleAutoRefresh: () => void
   /** Timestamp of last fetch (ms) */
   lastFetched: number
-  /** Timestamp of last data update (ms) */
-  lastUpdated: number
+  /** ISO timestamp string of when the data is from */
+  dataTimestamp: string | null
+  /** ISO timestamp string of when the Australian data is from (for compare tab) */
+  auDataTimestamp: string | null
+  /** ISO timestamp string of when the New Zealand data is from (for compare tab) */
+  nzDataTimestamp: string | null
   /** Australia data error */
   auError: Error | null
   /** Whether Australia data is in error state */
@@ -57,7 +61,9 @@ export function DashboardHeader({
   isAutoRefreshEnabled,
   onToggleAutoRefresh,
   lastFetched,
-  lastUpdated,
+  dataTimestamp,
+  auDataTimestamp,
+  nzDataTimestamp,
   auError,
   auIsError,
   auRefetch,
@@ -82,7 +88,9 @@ export function DashboardHeader({
             isAutoRefreshEnabled={isAutoRefreshEnabled}
             onToggleAutoRefresh={onToggleAutoRefresh}
             lastFetched={lastFetched}
-            lastUpdated={lastUpdated}
+            dataTimestamp={dataTimestamp}
+            auDataTimestamp={auDataTimestamp}
+            nzDataTimestamp={nzDataTimestamp}
           />
         </div>
 

@@ -27,7 +27,7 @@ import { mapRegionCode } from './region-mapping'
  *
  * @param rows - All rows from OpenElectricity DataTable (power, energy, emissions)
  * @param demandRows - All rows from demand-only query (per-region, no fueltech grouping)
- * @param latestTimestampMs - Latest interval timestamp in milliseconds
+ * @param latestTimestampMs - Latest interval timestamp in milliseconds (UTC)
  * @returns Complete CountryEmissionsSnapshot for Australia with regional breakdowns
  *
  * @example
@@ -46,28 +46,27 @@ export const buildSnapshotFromRows = (
   demandRows: OpenElectricityDataRow[],
   latestTimestampMs: number,
 ): CountryEmissionsSnapshot => {
+  // Use timestamp as-is (already parsed as UTC by JavaScript)
   const timestampIso = new Date(latestTimestampMs).toISOString()
 
-  // Filter to latest interval only
+  // Filter to latest interval only - exact match
   const latestRows = rows.filter(row => {
-    const intervalValue = new Date(row.interval ?? 0).getTime()
-    return intervalValue === latestTimestampMs
+    if (!row.interval) return false
+    const intervalMs = new Date(row.interval as string).getTime()
+    return intervalMs === latestTimestampMs
   })
 
-  // Filter demand rows to latest interval
-  // Handle both string and Date interval formats, and allow some tolerance for timestamp matching
+  // Filter demand rows to latest interval - exact match
   const latestDemandRows = demandRows.filter(row => {
     if (!row.interval) return false
-    const intervalValue = typeof row.interval === 'string' 
+    const intervalMs = typeof row.interval === 'string' 
       ? new Date(row.interval).getTime()
       : row.interval instanceof Date
       ? row.interval.getTime()
       : typeof row.interval === 'number'
       ? row.interval
       : 0
-    
-    // Allow 1 minute tolerance for timestamp matching (in case of rounding differences)
-    return Math.abs(intervalValue - latestTimestampMs) < 60 * 1000
+    return intervalMs === latestTimestampMs
   })
 
   // Aggregate power, energy, emissions data

@@ -16,7 +16,7 @@ import { useEffect, useState } from 'react'
 
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
-import { useAuData, useDataTimestamps, useNzData, useSyncedAutoRefresh } from '@/hooks'
+import { useAuData, useNzData, useSyncedAutoRefresh } from '@/hooks'
 import { CompareView } from '@/components/compare'
 
 import { DashboardHeader } from './header/DashboardHeader'
@@ -39,10 +39,8 @@ export function DashboardView() {
   const { data: auData, refetch: auRefetch, isFetching: auFetching, error: auError, isError: auIsError, dataUpdatedAt: auDataUpdatedAt } = useAuData()
   const { data: nzData, refetch: nzRefetch, isFetching: nzFetching, error: nzError, isError: nzIsError, dataUpdatedAt: nzDataUpdatedAt } = useNzData()
   const [activeCountry, setActiveCountry] = useState<'australia' | 'new-zealand' | 'compare'>('australia')
-
-  // Track when data actually changes (not just when fetched)
-  const { lastUpdated: auLastUpdated } = useDataTimestamps(auData)
-  const { lastUpdated: nzLastUpdated } = useDataTimestamps(nzData)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [lastRefreshAttempt, setLastRefreshAttempt] = useState<{ au: number; nz: number }>({ au: 0, nz: 0 })
 
   // Force re-render every second to update relative time display
   const [, setTick] = useState(0)
@@ -57,20 +55,30 @@ export function DashboardView() {
   const currentFetching = isAustralia ? auFetching : nzFetching
 
   // Handle refresh based on active tab
-  const handleRefresh = () => {
-    if (activeCountry === 'compare') {
-      // Refresh both when on compare tab
-      auRefetch()
-      nzRefetch()
-    } else if (activeCountry === 'australia') {
-      auRefetch()
-    } else {
-      nzRefetch()
+  // Always show refresh state, but only fetch if data is stale
+  const handleRefresh = async () => {
+    const now = Date.now()
+    setIsRefreshing(true)
+    try {
+      if (activeCountry === 'compare') {
+        // Refresh both when on compare tab
+        setLastRefreshAttempt({ au: now, nz: now })
+        await Promise.all([auRefetch(), nzRefetch()])
+      } else if (activeCountry === 'australia') {
+        setLastRefreshAttempt(prev => ({ ...prev, au: now }))
+        await auRefetch()
+      } else {
+        setLastRefreshAttempt(prev => ({ ...prev, nz: now }))
+        await nzRefetch()
+      }
+    } finally {
+      // Small delay to ensure loading state is visible
+      setTimeout(() => setIsRefreshing(false), 200)
     }
   }
 
-  // Show fetching state if either is fetching (for compare tab)
-  const isAnyFetching = activeCountry === 'compare' ? (auFetching || nzFetching) : currentFetching
+  // Show fetching state if either is fetching (for compare tab) or if manually refreshing
+  const isAnyFetching = isRefreshing || (activeCountry === 'compare' ? (auFetching || nzFetching) : currentFetching)
 
   // Synced auto-refresh for both AU and NZ data sources
   const { isEnabled: isAutoRefreshEnabled, toggle: toggleAutoRefresh } = useSyncedAutoRefresh(
@@ -82,17 +90,26 @@ export function DashboardView() {
   )
 
   // Determine which timestamps to show based on active country
+  // Use the most recent of: actual dataUpdatedAt or last refresh attempt
   const lastFetched = activeCountry === 'compare'
-    ? Math.max(auDataUpdatedAt || 0, nzDataUpdatedAt || 0)
+    ? Math.max(
+        Math.max(auDataUpdatedAt || 0, lastRefreshAttempt.au),
+        Math.max(nzDataUpdatedAt || 0, lastRefreshAttempt.nz)
+      )
     : activeCountry === 'australia'
-    ? auDataUpdatedAt || 0
-    : nzDataUpdatedAt || 0
+    ? Math.max(auDataUpdatedAt || 0, lastRefreshAttempt.au)
+    : Math.max(nzDataUpdatedAt || 0, lastRefreshAttempt.nz)
 
-  const lastUpdated = activeCountry === 'compare'
-    ? Math.max(auLastUpdated || 0, nzLastUpdated || 0)
+  // Get data timestamps (when the data is from) instead of "last updated"
+  // For compare tab, we need both timestamps separately
+  const auDataTimestamp = auData?.timestamp || null
+  const nzDataTimestamp = nzData?.timestamp || null
+  
+  const dataTimestamp = activeCountry === 'compare'
+    ? null // Not used for compare tab - we use separate timestamps
     : activeCountry === 'australia'
-    ? auLastUpdated || 0
-    : nzLastUpdated || 0
+    ? auDataTimestamp
+    : nzDataTimestamp
 
   return (
     <Tabs
@@ -109,7 +126,9 @@ export function DashboardView() {
           isAutoRefreshEnabled={isAutoRefreshEnabled}
           onToggleAutoRefresh={toggleAutoRefresh}
           lastFetched={lastFetched}
-          lastUpdated={lastUpdated}
+          dataTimestamp={dataTimestamp}
+          auDataTimestamp={activeCountry === 'compare' ? auDataTimestamp : null}
+          nzDataTimestamp={activeCountry === 'compare' ? nzDataTimestamp : null}
           auError={auError}
           auIsError={auIsError}
           auRefetch={auRefetch}

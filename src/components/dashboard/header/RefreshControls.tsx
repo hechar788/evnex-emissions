@@ -9,7 +9,7 @@
 import { CalendarSync, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ClientOnly } from '@/components/ClientOnly'
-import { formatRelativeTime } from '@/lib/time-utils'
+import { formatRelativeTime, formatDataTimestamp } from '@/lib/time-utils'
 
 interface RefreshControlsProps {
   /** Handler for manual refresh */
@@ -22,8 +22,12 @@ interface RefreshControlsProps {
   onToggleAutoRefresh: () => void
   /** Timestamp of last fetch (ms) */
   lastFetched: number
-  /** Timestamp of last data update (ms) */
-  lastUpdated: number
+  /** ISO timestamp string of when the data is from */
+  dataTimestamp: string | null
+  /** ISO timestamp string of when the Australian data is from (for compare tab) */
+  auDataTimestamp: string | null
+  /** ISO timestamp string of when the New Zealand data is from (for compare tab) */
+  nzDataTimestamp: string | null
 }
 
 /**
@@ -40,7 +44,9 @@ export function RefreshControls({
   isAutoRefreshEnabled,
   onToggleAutoRefresh,
   lastFetched,
-  lastUpdated,
+  dataTimestamp,
+  auDataTimestamp,
+  nzDataTimestamp,
 }: RefreshControlsProps) {
   return (
     <div className="flex flex-col gap-2 md:items-end md:flex-shrink-0">
@@ -70,13 +76,27 @@ export function RefreshControls({
         fallback={
           <div className="flex flex-col text-xs text-muted-foreground md:items-end">
             <div>Last Fetched: --</div>
-            <div>Last Updated: --</div>
+            {auDataTimestamp !== null && nzDataTimestamp !== null ? (
+              <>
+                <div>Australian Data: --</div>
+                <div>New Zealand Data: --</div>
+              </>
+            ) : (
+              <div>Data from: --</div>
+            )}
           </div>
         }
       >
         <div className="flex flex-col text-xs text-muted-foreground md:items-end">
           <div>Last Fetched: {formatRelativeTime(lastFetched)}</div>
-          <div>Last Updated: {formatRelativeTime(lastUpdated)}</div>
+          {auDataTimestamp !== null && nzDataTimestamp !== null ? (
+            <>
+              <div>Australian Data: {formatDataTimestamp(auDataTimestamp)}</div>
+              <div>New Zealand Data: {formatDataTimestamp(nzDataTimestamp)}</div>
+            </>
+          ) : (
+            <div>Data from: {formatDataTimestamp(dataTimestamp)}</div>
+          )}
         </div>
       </ClientOnly>
     </div>

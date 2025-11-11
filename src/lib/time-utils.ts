@@ -7,36 +7,6 @@
  */
 
 /**
- * Parse timezone offset string (e.g., "+10:00" or "+11:00") to milliseconds.
- *
- * Used to correct timezone-naive timestamps from APIs that return local time
- * without timezone information.
- *
- * @param offset - Timezone offset string in format "+HH:MM" or "-HH:MM"
- * @returns Offset in milliseconds
- *
- * @example
- * ```typescript
- * parseTimezoneOffset("+10:00") // 36000000 (10 hours in ms)
- * parseTimezoneOffset("+11:00") // 39600000 (11 hours in ms)
- * parseTimezoneOffset("-05:00") // -18000000 (-5 hours in ms)
- * ```
- */
-export function parseTimezoneOffset(offset: string): number {
-  const match = offset.match(/^([+-])(\d{2}):(\d{2})$/)
-  if (!match) {
-    // Fallback to +10:00 (AEST) if parsing fails
-    return 10 * 60 * 60 * 1000
-  }
-
-  const sign = match[1] === '+' ? 1 : -1
-  const hours = parseInt(match[2], 10)
-  const minutes = parseInt(match[3], 10)
-
-  return sign * (hours * 60 * 60 * 1000 + minutes * 60 * 1000)
-}
-
-/**
  * Format a timestamp as relative time (e.g., "5m ago", "2h ago").
  *
  * Converts a timestamp to a human-readable relative time string.
@@ -81,6 +51,60 @@ export function formatRelativeTime(timestamp: number | null): string {
     return `${diffHours}h ago`
   } else {
     const date = new Date(timestamp)
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    // Use UTC for consistency with the rest of the app
+    return date.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      timeZone: 'UTC'
+    })
   }
+}
+
+/**
+ * Format a timestamp as a readable date and time string in UTC.
+ *
+ * Always displays timestamps in UTC timezone with "UTC" suffix.
+ *
+ * @param timestamp - ISO 8601 timestamp string or Unix timestamp in milliseconds, or null
+ * @returns Formatted date/time string in UTC, or "Unknown" if timestamp is null/invalid
+ *
+ * @example
+ * ```typescript
+ * // Today
+ * formatDataTimestamp(new Date().toISOString()) // "Jan 11, 9:35 AM UTC"
+ *
+ * // Yesterday
+ * formatDataTimestamp(new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // "Jan 10, 14:30 UTC"
+ *
+ * // With milliseconds
+ * formatDataTimestamp(Date.now()) // "Jan 11, 9:35 AM UTC"
+ * ```
+ */
+export function formatDataTimestamp(timestamp: string | number | null): string {
+  if (!timestamp) return 'Unknown'
+
+  let date: Date
+  if (typeof timestamp === 'string') {
+    date = new Date(timestamp)
+  } else {
+    date = new Date(timestamp)
+  }
+
+  if (isNaN(date.getTime())) {
+    return 'Unknown'
+  }
+
+  // Always show date and time in UTC
+  const dateStr = date.toLocaleDateString('en-US', { 
+    month: 'short', 
+    day: 'numeric',
+    timeZone: 'UTC'
+  })
+  const timeStr = date.toLocaleTimeString('en-US', { 
+    hour: '2-digit', 
+    minute: '2-digit',
+    timeZone: 'UTC',
+    hour12: true
+  })
+  return `${dateStr}, ${timeStr} UTC`
 }

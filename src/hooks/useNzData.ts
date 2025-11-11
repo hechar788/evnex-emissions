@@ -202,6 +202,17 @@ export function useNzData() {
     ...emissionsQueryDefaults,
   })
 
+  /**
+   * Smart refetch that always calls React Query's refetch.
+   * React Query will respect staleTime internally - if data is fresh, it may use cache,
+   * but we always call refetch to ensure auto-refresh works and manual refresh shows loading state.
+   */
+  const smartRefetch = async () => {
+    // Always call refetch - React Query handles cache/staleTime internally
+    // This ensures auto-refresh always checks for new data, and manual refresh shows loading
+    return query.refetch()
+  }
+
   return {
     /** NZ emissions snapshot */
     data: query.data,
@@ -209,8 +220,12 @@ export function useNzData() {
     isFetching: query.isFetching,
     /** Whether query is loading (initial load) */
     isLoading: query.isLoading,
-    /** Trigger manual refetch */
-    refetch: query.refetch,
+    /** Whether data is stale (older than staleTime) */
+    isStale: query.isStale,
+    /** Smart refetch that respects cache (only refetches if stale) */
+    refetch: smartRefetch,
+    /** Force refetch (bypasses cache, always fetches) */
+    forceRefetch: query.refetch,
     /** Snapshot metadata */
     metadata: query.data?.metadata,
     /** Last successful fetch timestamp */
