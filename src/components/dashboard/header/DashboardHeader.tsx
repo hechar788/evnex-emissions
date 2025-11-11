@@ -83,6 +83,7 @@ export function DashboardHeader({
             </p>
           </div>
           <RefreshControls
+            activeCountry={activeCountry}
             onRefresh={onRefresh}
             isFetching={isFetching}
             isAutoRefreshEnabled={isAutoRefreshEnabled}

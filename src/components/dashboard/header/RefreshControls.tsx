@@ -9,9 +9,11 @@
 import { CalendarSync, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ClientOnly } from '@/components/ClientOnly'
-import { formatRelativeTime, formatDataTimestamp } from '@/lib/time-utils'
+import { formatRelativeTime, formatDataTimestamp, formatNzDataTimestamp, formatAuDataTimestamp } from '@/lib/time-utils'
 
 interface RefreshControlsProps {
+  /** Current active country tab */
+  activeCountry: 'australia' | 'new-zealand' | 'compare'
   /** Handler for manual refresh */
   onRefresh: () => void
   /** Whether data is currently being fetched */
@@ -39,6 +41,7 @@ interface RefreshControlsProps {
  * - Last fetched/updated timestamps (client-only)
  */
 export function RefreshControls({
+  activeCountry,
   onRefresh,
   isFetching,
   isAutoRefreshEnabled,
@@ -91,11 +94,15 @@ export function RefreshControls({
           <div>Last Fetched: {formatRelativeTime(lastFetched)}</div>
           {auDataTimestamp !== null && nzDataTimestamp !== null ? (
             <>
-              <div>Australian Data: {formatDataTimestamp(auDataTimestamp)}</div>
-              <div>New Zealand Data: {formatDataTimestamp(nzDataTimestamp)}</div>
+              <div>Australian Data: {formatAuDataTimestamp(auDataTimestamp)}</div>
+              <div>New Zealand Data: {formatNzDataTimestamp(nzDataTimestamp)}</div>
             </>
           ) : (
-            <div>Data from: {formatDataTimestamp(dataTimestamp)}</div>
+            <div>Data from: {activeCountry === 'new-zealand' 
+              ? formatNzDataTimestamp(dataTimestamp) 
+              : activeCountry === 'australia'
+              ? formatAuDataTimestamp(dataTimestamp)
+              : formatDataTimestamp(dataTimestamp)}</div>
           )}
         </div>
       </ClientOnly>
