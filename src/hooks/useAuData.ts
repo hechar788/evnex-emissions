@@ -9,14 +9,9 @@
 
 import { useSuspenseQuery } from '@tanstack/react-query'
 
-import { createQueryKeyFactory, emissionsQueryDefaults, fetchJson } from '@/lib/query-utils'
+import { createQueryKey, emissionsQueryDefaults, fetchJson } from '@/lib/query-utils'
 import { isRenewableFuelType } from '@/lib/fuel-utils'
 import type { CountryEmissionsSnapshot, FuelType } from '@/types/emissions'
-
-/**
- * Query key factory for Australian data.
- */
-export const auQueryKeys = createQueryKeyFactory('au')
 
 /**
  * Fetches AU emissions snapshot from REST API.
@@ -63,7 +58,7 @@ const fetchAuSnapshot = async (): Promise<CountryEmissionsSnapshot> => {
  */
 export function useAuData() {
   const query = useSuspenseQuery({
-    queryKey: auQueryKeys.current(),
+    queryKey: createQueryKey('au'),
     queryFn: fetchAuSnapshot,
     ...emissionsQueryDefaults,
   })

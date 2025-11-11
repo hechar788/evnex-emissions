@@ -26,26 +26,18 @@ export const emissionsQueryDefaults = {
 } satisfies Partial<UseQueryOptions>
 
 /**
- * Creates a namespaced query key factory.
+ * Creates a query key for a country's emissions data.
  *
- * Standard pattern for organizing query keys by feature/country.
- *
- * @param namespace - The namespace prefix (e.g., 'au', 'nz')
- * @returns Query key factory with all/current methods
+ * @param country - The country code (e.g., 'au', 'nz')
+ * @returns Query key array for React Query
  *
  * @example
  * ```ts
- * const auKeys = createQueryKeyFactory('au')
- * auKeys.all() // ['au']
- * auKeys.current() // ['au', 'current']
+ * const auQueryKey = createQueryKey('au') // ['au']
+ * const nzQueryKey = createQueryKey('nz') // ['nz']
  * ```
  */
-export function createQueryKeyFactory(namespace: string) {
-  return {
-    all: () => [namespace] as const,
-    current: () => [namespace, 'current'] as const,
-  }
-}
+export const createQueryKey = (country: string) => [country] as const
 
 /**
  * Generic fetch wrapper with error handling.

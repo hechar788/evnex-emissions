@@ -6,7 +6,7 @@
  * @module hooks
  */
 
-export { useAuData, useAuMetrics, auQueryKeys } from './useAuData'
-export { useNzData, nzQueryKeys } from './useNzData'
+export { useAuData, useAuMetrics } from './useAuData'
+export { useNzData } from './useNzData'
 export { useAutoRefresh } from './useAutoRefresh'
 export { useSyncedAutoRefresh } from './useSyncedAutoRefresh'

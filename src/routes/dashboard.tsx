@@ -11,7 +11,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 
 import { DashboardView, DashboardPending, DashboardError } from '@/components/dashboard'
-import { auQueryKeys } from '@/hooks'
+import { createQueryKey } from '@/lib/query-utils'
 import type { CountryEmissionsSnapshot } from '@/types/emissions'
 
 /**
@@ -38,8 +38,7 @@ export const Route = createFileRoute('/dashboard')({
     const auSnapshot: CountryEmissionsSnapshot = await response.json()
 
     // Seed React Query cache for client hydration
-    // The setupRouterSsrQueryIntegration() will automatically dehydrate this data
-    queryClient.setQueryData(auQueryKeys.current(), auSnapshot)
+    queryClient.setQueryData(createQueryKey('au'), auSnapshot)
   },
 
   component: DashboardView,

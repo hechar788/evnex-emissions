@@ -17,7 +17,7 @@ import { buildCountrySnapshot } from './snapshot-builder'
 import { mapRegionCode } from './region-mapping'
 
 /**
- * Transforms OpenElectricity DataTable rows into a complete country emissions snapshot.
+ * Transforms OpenElectricity DataTable rows into a complete emissions snapshot.
  *
  * Pipeline:
  * 1. Filters rows to only include the latest timestamp interval

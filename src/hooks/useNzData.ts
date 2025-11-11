@@ -10,17 +10,12 @@
 import { useQuery } from '@tanstack/react-query'
 
 import {
-  createQueryKeyFactory,
+  createQueryKey,
   emissionsQueryDefaults,
   fetchJsonWithTimeout,
 } from '@/lib/query-utils'
 import type { CountryEmissionsSnapshot, FuelType } from '@/types/emissions'
 import { NZ_FUEL_CODE_TO_FUEL_TYPE } from '@/types/transpower/generation/fuel_codes'
-
-/**
- * Query key factory for NZ data.
- */
-export const nzQueryKeys = createQueryKeyFactory('nz')
 
 /**
  * Fetches NZ carbon intensity from EM6 API.
@@ -197,7 +192,7 @@ const transformNzData = async (): Promise<CountryEmissionsSnapshot> => {
  */
 export function useNzData() {
   const query = useQuery({
-    queryKey: nzQueryKeys.current(),
+    queryKey: createQueryKey('nz'),
     queryFn: transformNzData,
     ...emissionsQueryDefaults,
   })
